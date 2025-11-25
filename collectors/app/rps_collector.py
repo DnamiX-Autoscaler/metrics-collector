@@ -1,6 +1,5 @@
 # collectors/app/rps_collector.py
 
-from typing import Dict
 from config.settings import PROMETHEUS_URL
 from utils.http_client import HTTPClient
 from utils.logger import get_logger
@@ -9,25 +8,13 @@ logger = get_logger(__name__)
 client = HTTPClient(PROMETHEUS_URL)
 
 
-def collect_rps(namespace: str, service_name: str, window_size_seconds: int) -> Dict[str, float]:
-    """
-    Collect HTTP Request Rate (RPS) for service.
-
-    PromQL (Istio / normal app):
-      sum(rate(istio_request_count{namespace="<ns>", destination_service="<svc>"}[window]))
-
-    Returns:
-      { "request_rate_rps": <float> }
-    """
-    window = f"[{window_size_seconds}s]"
+def collect_rps(namespace: str, service_name: str, window_size_seconds: int):
 
     query = (
-        "sum(rate(istio_request_count"
-        "{namespace=\"%s\", destination_service=\"%s\"}%s))"
-        % (namespace, service_name, window)
+        f"sum(rate(app_request_count_total{{namespace=\"{namespace}\", service=\"{service_name}\"}}[{window_size_seconds}s]))"
     )
 
-    logger.info("Querying RPS: %s", query)
+    logger.info("PromQL RPS: %s", query)
     data = client.get("/api/v1/query", params={"query": query})
 
     try:

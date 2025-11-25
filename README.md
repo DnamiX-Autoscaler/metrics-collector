@@ -23,17 +23,17 @@ Finally, it produces a **clean ML-ready dataset** for predictive auto-scaling re
 
 ## Folder Structure
 
-component-1-metrics-collector/
+metrics-collector/
 │
 ├── config/
-│   ├── settings.py                    # Prometheus URL, cluster ID, namespaces
-│   └── constants.py                   # Window size, query intervals
+│   ├── settings.py             
+│   └── constants.py                   
 │
 ├── utils/
-│   ├── http_client.py                 # Requests wrapper
-│   ├── time_utils.py                  # Timestamps, windows
-│   ├── logger.py                      # Logging
-│   └── math_utils.py                  # P95, P99, rate functions
+│   ├── http_client.py              
+│   ├── time_utils.py            
+│   ├── logger.py                      
+│   └── math_utils.py                 
 │
 ├── collectors/
 │   ├── node/
@@ -41,7 +41,7 @@ component-1-metrics-collector/
 │   │   ├── node_memory_collector.py
 │   │   ├── node_network_collector.py
 │   │   ├── node_disk_collector.py
-│   │   └── node_aggregator.py         # Combines node metrics
+│   │   └── node_aggregator.py       
 │   │
 │   ├── pod/
 │   │   ├── pod_cpu_collector.py
@@ -66,36 +66,36 @@ component-1-metrics-collector/
 │   │   ├── mesh_tls_error_collector.py
 │   │   └── mesh_aggregator.py
 │
-├── graph_centrality/                     # Your novelty lives here 
-│   ├── edge_extractor.py                 # Build edges from Istio metrics
-│   ├── graph_builder.py                  # Build NetworkX graph
-│   ├── degree_centrality.py              # (1) degree
-│   ├── betweenness_centrality.py         # (2) betweenness
-│   ├── closeness_centrality.py           # (3) closeness
-│   ├── eigenvector_centrality.py         # (4) eigenvector
-│   ├── compute_all.py                    # Combine all 4
-│   └── visualizer.py                     # Optional for graphs
+├── graph_centrality/                  
+│   ├── edge_extractor.py            
+│   ├── graph_builder.py           
+│   ├── degree_centrality.py           
+│   ├── betweenness_centrality.py    
+│   ├── closeness_centrality.py         
+│   ├── eigenvector_centrality.py   
+│   ├── compute_all.py                  
+│   └── visualizer.py       
 │
 ├── stress_index/
 │   ├── cpu_pressure_index.py
 │   ├── memory_pressure_index.py
 │   ├── io_pressure_index.py
-│   └── stress_index_aggregator.py        # Combines all pressure metrics
+│   └── stress_index_aggregator.py  
 │
 ├── processors/
-│   ├── data_cleaner.py                   # Normalize + clean
-│   ├── data_merger.py                    # Merge node+pod+mesh+centrality
-│   ├── window_aggregator.py              # Sliding window logic
-│   └── dataset_row_builder.py            # FINAL dataset row
+│   ├── data_cleaner.py          
+│   ├── data_merger.py            
+│   ├── window_aggregator.py     
+│   └── dataset_row_builder.py       
 │
 ├── exporters/
 │   ├── csv_exporter.py
 │   ├── json_exporter.py
-│   └── s3_exporter.py                    # Optional
+│   └── s3_exporter.py                   
 │
 ├── output/
-│   ├── raw/                              # Raw Prometheus dumps
-│   └── dataset/                          # Final ML-ready rows
+│   ├── raw/                     
+│   └── dataset/                  
 │
 ├── tests/
 │   ├── test_promql_queries.py
@@ -103,5 +103,5 @@ component-1-metrics-collector/
 │   ├── test_stress_index.py
 │   └── test_dataset_pipeline.py
 │
-├── main.py                               # Main pipeline entrypoint
-└── README.md                             # Documentation
+├── main.py                   
+└── README.md                       

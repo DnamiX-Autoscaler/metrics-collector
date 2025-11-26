@@ -11,24 +11,27 @@ client = HTTPClient(PROMETHEUS_URL)
 
 def collect_pod_restart_count(namespace: str) -> Dict[str, Dict[str, float]]:
     """
-    Collect pod restart counts.
+    Collect pod restart counts (per pod).
+
+    Metric source:
+      kube_pod_container_status_restarts_total
 
     PromQL:
       kube_pod_container_status_restarts_total{namespace="<ns>"}
     """
     query = (
-        f"kube_pod_container_status_restarts_total{{namespace=\"{namespace}\"}}"
+        "kube_pod_container_status_restarts_total"
+        f'{{namespace="{namespace}"}}'
     )
 
-    logger.info("Querying restart count: %s", query)
+    logger.info("Querying pod restart count: %s", query)
     data = client.get("/api/v1/query", params={"query": query})
 
     if data.get("status") != "success":
-        logger.error("Restart query failed: %s", data)
+        logger.error("Restart count query failed: %s", data)
         return {}
 
     results = data.get("data", {}).get("result", [])
-
     out: Dict[str, Dict[str, float]] = {}
 
     for item in results:
@@ -37,7 +40,12 @@ def collect_pod_restart_count(namespace: str) -> Dict[str, Dict[str, float]]:
         if not pod:
             continue
 
-        value = float(item.get("value", [None, "0"])[1])
-        out[pod] = {"pod_restart_count": value}
+        raw_val = item.get("value", [None, "0"])[1]
+        try:
+            count = float(raw_val)
+        except (TypeError, ValueError):
+            count = 0.0
+
+        out[pod] = {"pod_restart_count": count}
 
     return out

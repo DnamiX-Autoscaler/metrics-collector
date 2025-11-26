@@ -2,176 +2,242 @@
 
 import os
 import time
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Tuple
 
-from config.settings import PROM_URL, CLUSTER_ID, SERVICES, NAMESPACES
+from config.settings import (
+    PROMETHEUS_URL,
+    CLUSTER_ID,
+    TARGET_NAMESPACES,
+    TARGET_SERVICES,
+    OUTPUT_DATASET_PATH,
+)
 from config.constants import WINDOW_SIZE_SECONDS, SCRAPE_INTERVAL_SECONDS
 
-from collectors.node.node_cpu_collector import collect_node_cpu_usage
-from collectors.node.node_memory_collector import collect_node_memory
-from collectors.node.node_network_collector import collect_node_network
-from collectors.node.node_disk_collector import collect_node_disk
-from collectors.node.node_aggregator import aggregate_node_metrics
-
-from collectors.pod.pod_cpu_collector import collect_pod_cpu
-from collectors.pod.pod_memory_collector import collect_pod_memory
-from collectors.pod.pod_restart_collector import collect_pod_restarts
-from collectors.pod.pod_limits_collector import collect_pod_limits
-from collectors.pod.pod_aggregator import aggregate_pod_metrics
-
+from collectors.node.node_aggregator import collect_node_metrics
+from collectors.pod.pod_aggregator import collect_pod_metrics
 from collectors.app.app_aggregator import collect_app_metrics
-
 from collectors.mesh.mesh_aggregator import collect_mesh_metrics
 
 from graph_centrality.compute_all import compute_all_centralities
 
-from stress_index.stress_index_aggregator import compute_stress_index
-
-from processors.data_cleaner import clean_numeric_fields
 from processors.data_merger import merge_metrics
-from processors.dataset_row_builder import build_dataset_row
-from processors.dataset_row_builder import DATASET_COLUMNS
+from processors.dataset_row_builder import build_dataset_row, DATASET_COLUMNS
 
 from exporters.csv_exporter import append_row_to_csv
 from exporters.json_exporter import append_row_to_jsonl
 
 from utils.time_utils import current_utc_iso
 from utils.logger import get_logger
-from utils.http_client import HTTPClient
-
 
 logger = get_logger("main")
 
+# -------------------------------------------------------------------
+# OUTPUT DIRS
+# -------------------------------------------------------------------
 RAW_OUTPUT_DIR = "output/raw"
 DATASET_DIR = "output/dataset"
 
 os.makedirs(RAW_OUTPUT_DIR, exist_ok=True)
 os.makedirs(DATASET_DIR, exist_ok=True)
 
+# CSV / JSONL file paths (use OUTPUT_DATASET_PATH as base)
+CSV_DATASET_FILE = os.path.join(DATASET_DIR, OUTPUT_DATASET_PATH)
+if CSV_DATASET_FILE.endswith(".csv"):
+    JSONL_DATASET_FILE = CSV_DATASET_FILE[:-4] + ".jsonl"
+else:
+    JSONL_DATASET_FILE = CSV_DATASET_FILE + ".jsonl"
 
-def scrape_single_service(namespace: str, service_name: str) -> Dict[str, Any]:
+
+# -------------------------------------------------------------------
+# INTERNAL HELPERS
+# -------------------------------------------------------------------
+
+def _pick_representative_node(node_metrics: Dict[str, Dict[str, float]]) -> Dict[str, Any]:
     """
-    Collect all metric layers for a given service.
+    Docker Desktop / single-node cluster assumption:
+      - node_metrics: { "docker-desktop": { ... } }
+
+    We pick first node and attach node_name.
+    """
+    if not node_metrics:
+        return {}
+
+    node_name = next(iter(node_metrics.keys()))
+    metrics = dict(node_metrics[node_name])
+    metrics["node_name"] = node_name
+    return metrics
+
+
+def _aggregate_pods_for_service(
+    service_name: str,
+    pod_metrics: Dict[str, Dict[str, float]],
+) -> Dict[str, float]:
+    """
+    pod_metrics dict (from pod_aggregator):
+      {
+        "product-service-xxxxx": { ... },
+        "order-service-yyyyy": { ... },
+        ...
+      }
+
+    - Try to filter pods whose name startswith service_name.
+    - If none match, fall back to using ALL pods in namespace.
+    - For each numeric field, compute average across selected pods.
     """
 
-    logger.info("Scraping metrics for %s/%s", namespace, service_name)
+    if not pod_metrics:
+        return {
+            "current_pod_count": 0,
+            "pod_cpu_usage_percent_avg": 0.0,
+            "pod_cpu_usage_percent_p95": 0.0,
+            "pod_memory_usage_mb_avg": 0.0,
+            "pod_memory_usage_mb_p95": 0.0,
+            "pod_restart_count": 0.0,
+            "pod_cpu_limit_percent": 0.0,
+            "pod_memory_limit_percent": 0.0,
+        }
 
-    # ----------------------------
-    # 1. NODE-LEVEL METRICS
-    # ----------------------------
-    node_cpu = collect_node_cpu_usage(namespace, "all-nodes", WINDOW_SIZE_SECONDS)
-    node_mem = collect_node_memory(namespace, "all-nodes", WINDOW_SIZE_SECONDS)
-    node_net = collect_node_network(namespace, "all-nodes", WINDOW_SIZE_SECONDS)
-    node_disk = collect_node_disk(namespace, "all-nodes", WINDOW_SIZE_SECONDS)
-
-    node_metrics = aggregate_node_metrics(
-        node_cpu,
-        node_mem,
-        node_net,
-        node_disk,
-    )
-
-    # ----------------------------
-    # 2. POD-LEVEL METRICS
-    # ----------------------------
-    pod_cpu = collect_pod_cpu(namespace, service_name, WINDOW_SIZE_SECONDS)
-    pod_mem = collect_pod_memory(namespace, service_name, WINDOW_SIZE_SECONDS)
-    pod_restart = collect_pod_restarts(namespace, service_name)
-    pod_limits = collect_pod_limits(namespace, service_name)
-
-    pod_metrics = aggregate_pod_metrics(
-        pod_cpu, pod_mem, pod_restart, pod_limits
-    )
-
-    # ----------------------------
-    # 3. APP-LEVEL (Prometheus CLIENT LIB)
-    # ----------------------------
-    app_metrics = collect_app_metrics(
-        namespace, service_name, WINDOW_SIZE_SECONDS
-    )
-
-    # ----------------------------
-    # 4. SERVICE-MESH (ISTIO)
-    # ----------------------------
-    mesh_metrics = collect_mesh_metrics(
-        namespace, service_name, WINDOW_SIZE_SECONDS
-    )
-
-    # ----------------------------
-    # RETURN RAW LAYERS
-    # ----------------------------
-    return {
-        "node": node_metrics,
-        "pod": pod_metrics,
-        "app": app_metrics,
-        "mesh": mesh_metrics,
+    # Filter pods belonging to this service (by name prefix)
+    selected: Dict[str, Dict[str, float]] = {
+        pod: vals for pod, vals in pod_metrics.items()
+        if pod.startswith(service_name)
     }
 
+    # If nothing matched, fallback to all pods (namespace-level aggregate)
+    if not selected:
+        selected = pod_metrics
 
-def run_pipeline():
+    pod_count = len(selected)
+
+    def avg_for_key(key: str) -> float:
+        vals: List[float] = []
+        for m in selected.values():
+            v = m.get(key)
+            if isinstance(v, (int, float)):
+                vals.append(float(v))
+        if not vals:
+            return 0.0
+        return sum(vals) / len(vals)
+
+    aggregated = {
+        "current_pod_count": float(pod_count),
+        "pod_cpu_usage_percent_avg": avg_for_key("pod_cpu_usage_percent_avg"),
+        "pod_cpu_usage_percent_p95": avg_for_key("pod_cpu_usage_percent_p95"),
+        "pod_memory_usage_mb_avg": avg_for_key("pod_memory_usage_mb_avg"),
+        "pod_memory_usage_mb_p95": avg_for_key("pod_memory_usage_mb_p95"),
+        "pod_restart_count": avg_for_key("pod_restart_count"),
+        "pod_cpu_limit_percent": avg_for_key("pod_cpu_limit_percent"),
+        "pod_memory_limit_percent": avg_for_key("pod_memory_limit_percent"),
+    }
+
+    return aggregated
+
+
+# -------------------------------------------------------------------
+# MAIN SCRAPE FOR ONE ITERATION
+# -------------------------------------------------------------------
+
+def scrape_and_build_rows() -> None:
     """
-    Main loop:
-    - Collect metrics for all services
-    - Compute graph centrality
-    - Build dataset rows
-    - Store CSV + JSON
+    One full scrape cycle:
+      - Node metrics (cluster level)
+      - For each namespace:
+          - Graph centrality (degree / betweenness / closeness / eigenvector)
+          - Pod metrics (namespace → filtered per service by pod name)
+          - For each service:
+              - App metrics (RPS / latency / errors / queue)
+              - Mesh metrics (ingress / egress / latency / retries / TLS errors)
+              - Merge + build dataset row
+              - Export to CSV + JSONL
     """
 
-    http = HTTPClient(PROM_URL)
+    loop_timestamp = current_utc_iso()
+    window_start_ts = time.time() - WINDOW_SIZE_SECONDS
 
-    while True:
-        loop_timestamp = current_utc_iso()
+    logger.info("==== SCRAPE START @ %s ====", loop_timestamp)
 
-        # STEP 1 — Collect metrics for every service
-        service_metric_map = {}  # service → merged metrics
-        graph_edges = []         # list of (src, dest, weight)
+    # ---------------------------------------------------------------
+    # 1) NODE METRICS (cluster level)
+    # ---------------------------------------------------------------
+    node_metrics_map = collect_node_metrics(
+        window_start_ts=window_start_ts,
+        window_size_seconds=WINDOW_SIZE_SECONDS,
+    )
+    representative_node = _pick_representative_node(node_metrics_map)
 
-        for namespace in NAMESPACES:
-            for service in SERVICES:
-                layers = scrape_single_service(namespace, service)
+    # ---------------------------------------------------------------
+    # FOR EACH NAMESPACE
+    # ---------------------------------------------------------------
+    for namespace in TARGET_NAMESPACES:
+        logger.info("Processing namespace=%s", namespace)
 
-                # merge node+pod+app+mesh
-                merged = merge_metrics(
-                    base={},
-                    node_metrics=layers["node"],
-                    pod_metrics=layers["pod"],
-                    app_metrics=layers["app"],
-                    mesh_metrics=layers["mesh"],
-                )
+        # 2) GRAPH CENTRALITY (your novelty)
+        centrality_map = compute_all_centralities(
+            namespace=namespace,
+            window_size_seconds=WINDOW_SIZE_SECONDS,
+            min_rps_threshold=0.01,
+        )
 
-                # record for graph building
-                # here mesh metrics usually include inbound/outbound traffic
-                src = service
-                outbound = merged.get("outbound_request_rate_rps", 0)
-                inbound = merged.get("inbound_request_rate_rps", 0)
+        # 3) POD METRICS (namespace-wide, aggregated per service later)
+        pod_metrics_map = collect_pod_metrics(
+            namespace=namespace,
+            window_size_seconds=WINDOW_SIZE_SECONDS,
+        )
 
-                # add minimal 1-edge graph:
-                if outbound > 0:
-                    graph_edges.append((service, "downstream-service", outbound))
-                if inbound > 0:
-                    graph_edges.append(("upstream-service", service, inbound))
+        # -----------------------------------------------------------
+        # FOR EACH SERVICE IN THIS NAMESPACE
+        # -----------------------------------------------------------
+        for service_name in TARGET_SERVICES:
+            logger.info("Collecting metrics for %s/%s", namespace, service_name)
 
-                service_metric_map[(namespace, service)] = merged
+            # 3a) Aggregate pod metrics for this service
+            pod_metrics_for_service = _aggregate_pods_for_service(
+                service_name=service_name,
+                pod_metrics=pod_metrics_map,
+            )
 
-        # STEP 2 — Compute centrality on graph
-        centrality_map = compute_all_centralities(graph_edges)
+            # 3b) APP METRICS (Prometheus client / app-level)
+            app_metrics = collect_app_metrics(
+                namespace=namespace,
+                service_name=service_name,
+                window_size_seconds=WINDOW_SIZE_SECONDS,
+            )
 
-        # STEP 3 — Build dataset rows
-        for (namespace, service_name), merged_metrics in service_metric_map.items():
+            # 3c) MESH METRICS (Istio)
+            mesh_metrics = collect_mesh_metrics(
+                namespace=namespace,
+                service_name=service_name,
+                window_size_seconds=WINDOW_SIZE_SECONDS,
+            )
+
+            # 3d) Merge all metric layers
+            merged_metrics = merge_metrics(
+                base={},
+                node_metrics=representative_node,
+                pod_metrics=pod_metrics_for_service,
+                app_metrics=app_metrics,
+                mesh_metrics=mesh_metrics,
+                stress_metrics=None,          # dataset_row_builder will calc stress_index
+                centrality_metrics=None,      # centrality is passed separately
+                scaling_decision=None,        # scaling decision passed separately
+            )
+
+            # 3e) Centrality for THIS service
             centrals = centrality_map.get(service_name, {
-                "degree_centrality": 0,
-                "betweenness_centrality": 0,
-                "closeness_centrality": 0,
-                "eigenvector_centrality": 0,
+                "degree_centrality": 0.0,
+                "betweenness_centrality": 0.0,
+                "closeness_centrality": 0.0,
+                "eigenvector_centrality": 0.0,
             })
 
-            # scaling decision placeholder (Component 2)
-            scaling = {
+            # 3f) Placeholder scaling decision (Component 2 will replace)
+            scaling_decision = {
                 "current_replicas": merged_metrics.get("current_pod_count", 1),
-                "recommended_replicas": merged_metrics.get("current_pod_count", 1),  # placeholder
+                "recommended_replicas": merged_metrics.get("current_pod_count", 1),
                 "scale_direction": "NONE",
             }
 
+            # 3g) Build final dataset row
             row = build_dataset_row(
                 cluster_id=CLUSTER_ID,
                 namespace=namespace,
@@ -179,18 +245,39 @@ def run_pipeline():
                 window_size_seconds=WINDOW_SIZE_SECONDS,
                 merged_metrics=merged_metrics,
                 centrality_for_service=centrals,
-                scaling_decision=scaling,
+                scaling_decision=scaling_decision,
                 timestamp=loop_timestamp,
             )
 
-            # STEP 4 — Export dataset row
-            csv_path = os.path.join(DATASET_DIR, "metrics_dataset.csv")
-            jsonl_path = os.path.join(DATASET_DIR, "metrics_dataset.jsonl")
+            # 3h) Export
+            append_row_to_csv(CSV_DATASET_FILE, row)
+            append_row_to_jsonl(JSONL_DATASET_FILE, row)
 
-            append_row_to_csv(csv_path, row)
-            append_row_to_jsonl(jsonl_path, row)
+            logger.info("Dataset row saved for %s/%s", namespace, service_name)
 
-            logger.info("Row saved for %s/%s", namespace, service_name)
+    logger.info("==== SCRAPE END ====")
+
+
+# -------------------------------------------------------------------
+# MAIN LOOP
+# -------------------------------------------------------------------
+
+def run_pipeline() -> None:
+    """
+    Infinite loop – call scrape_and_build_rows() every SCRAPE_INTERVAL_SECONDS.
+    """
+
+    logger.info("Starting metrics collector pipeline…")
+    logger.info("Prometheus URL: %s", PROMETHEUS_URL)
+    logger.info("Cluster ID: %s", CLUSTER_ID)
+    logger.info("Namespaces: %s", TARGET_NAMESPACES)
+    logger.info("Services: %s", TARGET_SERVICES)
+
+    while True:
+        try:
+            scrape_and_build_rows()
+        except Exception as e:
+            logger.exception("Error during scrape cycle: %s", e)
 
         logger.info("Sleeping %ds before next scrape…", SCRAPE_INTERVAL_SECONDS)
         time.sleep(SCRAPE_INTERVAL_SECONDS)

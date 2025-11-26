@@ -8,16 +8,9 @@ logger = get_logger(__name__)
 
 
 class SlidingWindowAggregator:
-    """
-    Simple sliding-window aggregator.
-
-    Even though most aggregations are done by PromQL (rate(), histogram_quantile()),
-    this can be used if you want to keep N recent rows per (namespace,service)
-    and do additional temporal smoothing later.
-    """
+    """Maintain N latest dataset rows for smoothing/window ops."""
 
     def __init__(self, max_window_size: int = 10):
-        # key: (namespace, service_name) -> deque[Dict]
         self.max_window_size = max_window_size
         self._windows: Dict[Tuple[str, str], Deque[Dict[str, Any]]] = {}
 
@@ -26,8 +19,9 @@ class SlidingWindowAggregator:
         if key not in self._windows:
             self._windows[key] = deque(maxlen=self.max_window_size)
         self._windows[key].append(row)
+
         logger.debug(
-            "Added row to window %s/%s (size=%d)",
+            "Added window row %s/%s (size=%d)",
             namespace,
             service_name,
             len(self._windows[key]),

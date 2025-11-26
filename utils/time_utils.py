@@ -1,4 +1,5 @@
 # utils/time_utils.py
+
 import time
 from datetime import datetime, timezone
 
@@ -16,3 +17,12 @@ def floor_to_window_start(ts: float, window_size: int) -> float:
 def utc_ts_to_iso(ts: float) -> str:
     """Timestamp → ISO 8601 UTC format."""
     return datetime.fromtimestamp(ts, tz=timezone.utc).isoformat()
+
+
+def current_utc_iso() -> str:
+    """
+    Convenience helper:
+    Right-now UTC time as ISO 8601 string.
+    Used by dataset_row_builder to stamp each row.
+    """
+    return datetime.now(timezone.utc).isoformat()

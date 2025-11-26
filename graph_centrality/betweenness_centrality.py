@@ -12,9 +12,7 @@ def compute_betweenness_centrality(G: nx.DiGraph) -> Dict[str, float]:
     Betweenness centrality → detects bottlenecks on shortest paths.
 
     - Use directed graph
-    - Weighted by "cost". But our edge weight = RPS (higher is stronger).
-      For path cost we ideally want 1/weight, but for simplicity & stability
-      we treat graph as unweighted and use topological structure.
+    - Weight not used (unweighted shortest paths) for stability.
 
     Returns:
       { "product-service": 0.12, "payment-service": 0.35, ... }

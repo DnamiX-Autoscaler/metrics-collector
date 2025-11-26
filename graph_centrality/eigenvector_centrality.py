@@ -12,7 +12,7 @@ def compute_eigenvector_centrality(G: nx.DiGraph) -> Dict[str, float]:
     Eigenvector centrality → finds "indirectly influential" services.
 
     - Service is important if it connects to other important services.
-    - Use undirected version for stability.
+    - Use undirected version for numerical stability.
 
     Returns:
       { "product-service": 0.32, "auth-service": 0.67, ... }

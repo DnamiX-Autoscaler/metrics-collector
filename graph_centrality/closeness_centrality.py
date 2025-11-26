@@ -12,8 +12,7 @@ def compute_closeness_centrality(G: nx.DiGraph) -> Dict[str, float]:
     Closeness centrality → how fast delay/faults spread through system.
 
     - We care about reachability in the call graph.
-    - Use directed graph, but NetworkX closeness on DiGraph is fine.
-    - Treat as unweighted to avoid instability with 1/weight transforms.
+    - Use directed graph, treat as unweighted.
 
     Returns:
       { "product-service": 0.43, "order-service": 0.58, ... }

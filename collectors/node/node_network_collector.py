@@ -10,67 +10,40 @@ client = HTTPClient(PROMETHEUS_URL)
 
 
 def _query_vector(query: str) -> Dict[str, float]:
-    logger.info("Querying Prometheus (network): %s", query)
     data = client.get("/api/v1/query", params={"query": query})
-
     if data.get("status") != "success":
-        logger.error("Prometheus network query failed: %s", data)
         return {}
 
-    results = data.get("data", {}).get("result", [])
-    out: Dict[str, float] = {}
-
-    for item in results:
-        metric = item.get("metric", {})
+    out = {}
+    for item in data["data"]["result"]:
+        instance = item["metric"].get("instance", "unknown-node")
         value = item.get("value", [None, "0"])[1]
-        node_name = metric.get("instance", "unknown-node")
         try:
-            val = float(value)
-        except (TypeError, ValueError):
-            val = 0.0
-
-        out[node_name] = val
-
+            out[instance] = float(value)
+        except:
+            out[instance] = 0.0
     return out
 
 
 def collect_node_network_io(window_size_seconds: int) -> Dict[str, Dict[str, float]]:
-    """
-    Collect node-level network RX/TX in kbps.
-
-    PromQL:
-
-      node_network_rx_kbps =
-        sum by(instance)(
-          irate(node_network_receive_bytes_total{device!~"lo"}[window])
-        ) * 8 / 1024
-
-      node_network_tx_kbps =
-        sum by(instance)(
-          irate(node_network_transmit_bytes_total{device!~"lo"}[window])
-        ) * 8 / 1024
-    """
-    range_selector = f"[{window_size_seconds}s]"
-
-    query_rx = (
+    rx_query = (
         "sum by(instance)("
-        f"irate(node_network_receive_bytes_total{{device!~\"lo\"}}{range_selector})"
+        f"irate(node_network_receive_bytes_total{{device!~\"lo\"}}[{window_size_seconds}s])"
         ") * 8 / 1024"
     )
 
-    query_tx = (
+    tx_query = (
         "sum by(instance)("
-        f"irate(node_network_transmit_bytes_total{{device!~\"lo\"}}{range_selector})"
+        f"irate(node_network_transmit_bytes_total{{device!~\"lo\"}}[{window_size_seconds}s])"
         ") * 8 / 1024"
     )
 
-    rx_map = _query_vector(query_rx)
-    tx_map = _query_vector(query_tx)
+    rx_map = _query_vector(rx_query)
+    tx_map = _query_vector(tx_query)
 
-    combined: Dict[str, Dict[str, float]] = {}
-    all_nodes = set(rx_map.keys()) | set(tx_map.keys())
+    combined = {}
 
-    for node in all_nodes:
+    for node in set(rx_map.keys()) | set(tx_map.keys()):
         combined[node] = {
             "node_network_rx_kbps": rx_map.get(node, 0.0),
             "node_network_tx_kbps": tx_map.get(node, 0.0),

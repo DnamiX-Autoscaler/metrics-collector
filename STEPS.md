@@ -47,3 +47,14 @@ output/raw/
 
 ## All tests folder run
 pytest -q 
+
+
+### RUN PROMETHEUS
+kubectl -n monitoring port-forward svc/prometheus-kube-prometheus-prometheus 9090:9090
+
+### GET ALL PODS
+kubectl get pods -o wide
+
+### GET ALL SERVICES
+kubectl get svc -n default
+

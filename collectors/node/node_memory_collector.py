@@ -10,79 +10,45 @@ client = HTTPClient(PROMETHEUS_URL)
 
 
 def _query_vector(query: str) -> Dict[str, float]:
-    """Helper: run PromQL and return {instance: value} map."""
-    logger.info("Querying Prometheus (memory): %s", query)
     data = client.get("/api/v1/query", params={"query": query})
-
     if data.get("status") != "success":
-        logger.error("Prometheus memory query failed: %s", data)
+        logger.error("Node memory query failed: %s", query)
         return {}
 
-    results = data.get("data", {}).get("result", [])
-    out: Dict[str, float] = {}
-
-    for item in results:
-        metric = item.get("metric", {})
+    out = {}
+    for item in data["data"]["result"]:
+        instance = item["metric"].get("instance", "unknown-node")
         value = item.get("value", [None, "0"])[1]
-        node_name = metric.get("instance", "unknown-node")
 
         try:
-            val = float(value)
-        except (TypeError, ValueError):
-            val = 0.0
-
-        out[node_name] = val
+            out[instance] = float(value)
+        except:
+            out[instance] = 0.0
 
     return out
 
 
 def collect_node_memory_usage() -> Dict[str, Dict[str, float]]:
     """
-    Collect node memory usage:
-      - node_memory_usage_percent
-      - node_memory_usage_mb
-
-    PromQL:
-
-      usage_percent =
-        ((node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes)
-          / node_memory_MemTotal_bytes) * 100
-
-      usage_mb =
-        (node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes)
-        / (1024 * 1024)
-
-    Returns:
-      {
-        "instance-1": {
-          "node_memory_usage_percent": ...,
-          "node_memory_usage_mb": ...
-        },
-        ...
-      }
+    Memory usage % and MB.
     """
 
-    # Percent
-    query_percent = (
-        "((node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) "
-        "/ node_memory_MemTotal_bytes) * 100"
+    percent_query = (
+        "( (node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) "
+        " / node_memory_MemTotal_bytes ) * 100"
     )
 
-    # MB usage
-    query_mb = (
+    mb_query = (
         "(node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) "
-        "/ (1024 * 1024)"
+        "/ 1024 / 1024"
     )
 
-    percent_map = _query_vector(query_percent)
-    mb_map = _query_vector(query_mb)
+    percent_map = _query_vector(percent_query)
+    mb_map = _query_vector(mb_query)
 
-    combined: Dict[str, Dict[str, float]] = {}
+    combined = {}
 
-    # union of all node names
-    all_nodes = set(percent_map.keys()) | set(mb_map.keys())
-
-    for node in all_nodes:
+    for node in set(percent_map.keys()) | set(mb_map.keys()):
         combined[node] = {
             "node_memory_usage_percent": percent_map.get(node, 0.0),
             "node_memory_usage_mb": mb_map.get(node, 0.0),

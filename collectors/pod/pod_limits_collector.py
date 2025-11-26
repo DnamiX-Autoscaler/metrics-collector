@@ -11,56 +11,87 @@ client = HTTPClient(PROMETHEUS_URL)
 
 def collect_pod_limits(namespace: str) -> Dict[str, Dict[str, float]]:
     """
-    Collect CPU + Memory resource limits.
+    Collect CPU + Memory resource limits per pod.
 
-    CPU PromQL:
-      kube_pod_container_resource_limits{resource="cpu", namespace="<ns>"}
+    Metric source:
+      kube_pod_container_resource_limits
 
-    Memory PromQL:
-      kube_pod_container_resource_limits{resource="memory", namespace="<ns>"}
+    PromQL:
+      CPU:
+        kube_pod_container_resource_limits{
+          resource="cpu", namespace="<ns>"
+        }
+
+      Memory:
+        kube_pod_container_resource_limits{
+          resource="memory", namespace="<ns>"
+        }
+
+    We convert:
+      cpu_limit_cores -> pod_cpu_limit_percent (cores * 100)
+      memory_limit_bytes -> pod_memory_limit_percent (MB, name kept for schema)
     """
 
     query_cpu = (
-        f"kube_pod_container_resource_limits{{resource=\"cpu\", namespace=\"{namespace}\"}}"
+        "kube_pod_container_resource_limits"
+        f'{{resource="cpu", namespace="{namespace}"}}'
     )
     query_mem = (
-        f"kube_pod_container_resource_limits{{resource=\"memory\", namespace=\"{namespace}\"}}"
+        "kube_pod_container_resource_limits"
+        f'{{resource="memory", namespace="{namespace}"}}'
     )
 
-    logger.info("Querying pod resource limits...")
+    logger.info("Querying pod resource limits (CPU + Memory) for ns=%s", namespace)
 
     cpu_data = client.get("/api/v1/query", params={"query": query_cpu})
     mem_data = client.get("/api/v1/query", params={"query": query_mem})
 
     out: Dict[str, Dict[str, float]] = {}
 
-    # Parse CPU limits (in cores)
-    for item in cpu_data.get("data", {}).get("result", []):
-        pod = item.get("metric", {}).get("pod")
-        if not pod:
-            continue
-        val = float(item.get("value", [None, "0"])[1])
-        out.setdefault(pod, {})["cpu_limit_cores"] = val
+    # CPU limits
+    if cpu_data.get("status") == "success":
+        for item in cpu_data.get("data", {}).get("result", []):
+            metric = item.get("metric", {})
+            pod = metric.get("pod")
+            if not pod:
+                continue
 
-    # Parse Memory limits (in bytes)
-    for item in mem_data.get("data", {}).get("result", []):
-        pod = item.get("metric", {}).get("pod")
-        if not pod:
-            continue
-        val = float(item.get("value", [None, "0"])[1])
-        out.setdefault(pod, {})["memory_limit_bytes"] = val
+            raw_val = item.get("value", [None, "0"])[1]
+            try:
+                cores = float(raw_val)
+            except (TypeError, ValueError):
+                cores = 0.0
 
-    # Convert to %
+            out.setdefault(pod, {})["cpu_limit_cores"] = cores
+
+    # Memory limits
+    if mem_data.get("status") == "success":
+        for item in mem_data.get("data", {}).get("result", []):
+            metric = item.get("metric", {})
+            pod = metric.get("pod")
+            if not pod:
+                continue
+
+            raw_val = item.get("value", [None, "0"])[1]
+            try:
+                bytes_val = float(raw_val)
+            except (TypeError, ValueError):
+                bytes_val = 0.0
+
+            out.setdefault(pod, {})["memory_limit_bytes"] = bytes_val
+
+    # Convert to "percent-like" fields used in your final dataset
     for pod, d in out.items():
-        cpu_limit = d.get("cpu_limit_cores", 0)
-        mem_limit_bytes = d.get("memory_limit_bytes", 0)
+        cpu_limit_cores = d.get("cpu_limit_cores", 0.0)
+        mem_limit_bytes = d.get("memory_limit_bytes", 0.0)
 
-        # Convert to percentages (compared to 1 full core)
-        cpu_limit_percent = cpu_limit * 100
+        # 1 core = 100% (for scaling logic)
+        cpu_limit_percent = cpu_limit_cores * 100.0
 
-        mem_limit_percent = (mem_limit_bytes / (1024 * 1024))  # MB
+        # Memory "percent" you defined is actually MB in your dataset schema
+        mem_limit_mb = mem_limit_bytes / (1024 * 1024)
 
         d["pod_cpu_limit_percent"] = cpu_limit_percent
-        d["pod_memory_limit_percent"] = mem_limit_percent
+        d["pod_memory_limit_percent"] = mem_limit_mb
 
     return out

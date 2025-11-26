@@ -31,7 +31,7 @@ def build_service_graph(
     G = nx.DiGraph()
 
     for src, dst, rps in edges:
-        # If multiple metrics exist, accumulate weight
+        # If multiple edges (metrics) exist same src→dst, accumulate weight
         if G.has_edge(src, dst):
             G[src][dst]["weight"] += rps
         else:

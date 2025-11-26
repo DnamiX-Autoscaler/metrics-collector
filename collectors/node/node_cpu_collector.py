@@ -11,49 +11,37 @@ client = HTTPClient(PROMETHEUS_URL)
 
 def collect_node_cpu_usage(window_size_seconds: int) -> Dict[str, Dict[str, float]]:
     """
-    Collect node CPU usage (%) per node (instance).
-    Uses:
-      node_cpu_seconds_total{mode="idle"}
+    CPU Usage (%) per node.
 
     PromQL:
-      100 - (avg by(instance)(irate(node_cpu_seconds_total{mode="idle"}[window])) * 100)
-
-    Returns:
-      {
-        "instance-1": {"node_cpu_usage_percent": 43.2},
-        "instance-2": {"node_cpu_usage_percent": 55.7},
-        ...
-      }
+    100 - (avg by(instance)(irate(node_cpu_seconds_total{mode="idle"}[window])) * 100)
     """
-    range_selector = f"[{window_size_seconds}s]"
+
     query = (
-        f"100 - (avg by(instance)(irate("
-        f"node_cpu_seconds_total{{mode=\"idle\"}}{range_selector}"
-        f")) * 100)"
+        "100 - (avg by(instance)("
+        f"irate(node_cpu_seconds_total{{mode=\"idle\"}}[{window_size_seconds}s])"
+        ") * 100)"
     )
 
-    logger.info("Querying Prometheus for node CPU usage: %s", query)
+    logger.info("Querying node CPU usage: %s", query)
     data = client.get("/api/v1/query", params={"query": query})
 
     if data.get("status") != "success":
-        logger.error("Prometheus CPU query failed: %s", data)
+        logger.error("Node CPU query failed")
         return {}
 
-    results = data.get("data", {}).get("result", [])
-    cpu_map: Dict[str, Dict[str, float]] = {}
+    results = data["data"]["result"]
+    cpu_map = {}
 
     for item in results:
-        metric = item.get("metric", {})
+        instance = item["metric"].get("instance", "unknown-node")
         value = item.get("value", [None, "0"])[1]
 
-        node_name = metric.get("instance", "unknown-node")
         try:
-            cpu_percent = float(value)
-        except (TypeError, ValueError):
-            cpu_percent = 0.0
+            cpu = float(value)
+        except:
+            cpu = 0.0
 
-        cpu_map[node_name] = {
-            "node_cpu_usage_percent": cpu_percent
-        }
+        cpu_map[instance] = {"node_cpu_usage_percent": cpu}
 
     return cpu_map

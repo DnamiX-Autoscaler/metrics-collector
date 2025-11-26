@@ -1,13 +1,28 @@
 # config/constants.py
 
-# Time window boundaries
-DEFAULT_WINDOW_SECONDS = 30
-DEFAULT_QUERY_STEP = "15s"
+"""
+Global constants used throughout the metrics collector.
+These are intentionally separated from settings.py because
+they are STATIC values, not environment-configurable.
+"""
 
-# Retry logic for Prometheus HTTP
-HTTP_RETRY_COUNT = 3
-HTTP_RETRY_DELAY = 1  # seconds
+# -------------------------------------------------------
+# Default sliding window + scrape interval
+# -------------------------------------------------------
 
-# For network traffic → bytes to kilobytes
-BYTES_TO_KB = 1 / 1024
-BYTES_TO_MB = 1 / (1024 * 1024)
+# Window used for rate(), irate(), histogram_quantile() etc.
+WINDOW_SIZE_SECONDS = 30        # same as settings.py default
+
+# Time to sleep between pipeline iterations
+SCRAPE_INTERVAL_SECONDS = 30    # same as settings.py default
+
+# -------------------------------------------------------
+# Additional constants (if needed later)
+# -------------------------------------------------------
+
+# Minimum RPS required to include an edge in centrality graph
+MIN_RPS_THRESHOLD = 0.01
+
+# Placeholder for dataset column names prefix
+DATASET_VERSION = "v1.0"
+

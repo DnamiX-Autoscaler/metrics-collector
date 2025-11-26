@@ -19,7 +19,7 @@ def collect_app_metrics(
     window_size_seconds: int
 ) -> MetricMap:
     """
-    FINAL APP-LEVEL METRICS AGGREGATOR (Prometheus Client Library Based)
+    FINAL APP-LEVEL METRICS AGGREGATOR (Prometheus app-client based).
 
     Collects:
       ✔ request_rate_rps
@@ -35,18 +35,17 @@ def collect_app_metrics(
     """
 
     logger.info(
-        "Collecting APP metrics (prom-client) for service=%s in namespace=%s",
+        "Collecting APP metrics for service=%s in namespace=%s (window=%ss)",
         service_name,
         namespace,
+        window_size_seconds,
     )
 
-    # QUERY ORDER
-    rps        = collect_rps(namespace, service_name, window_size_seconds)
-    errors     = collect_error_rates(namespace, service_name, window_size_seconds)
-    latency    = collect_latency(namespace, service_name, window_size_seconds)
-    queue      = collect_queue_metrics(namespace, service_name)
+    rps = collect_rps(namespace, service_name, window_size_seconds)
+    errors = collect_error_rates(namespace, service_name, window_size_seconds)
+    latency = collect_latency(namespace, service_name, window_size_seconds)
+    queue = collect_queue_metrics(namespace, service_name)
 
-    # MERGE ALL OUTPUTS
     metrics: MetricMap = {}
     metrics.update(rps)
     metrics.update(errors)

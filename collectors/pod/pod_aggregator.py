@@ -26,7 +26,8 @@ def collect_pod_metrics(namespace: str, window_size_seconds: int) -> MetricMap:
           pod_memory_usage_mb_p95: ...,
           pod_restart_count: ...,
           pod_cpu_limit_percent: ...,
-          pod_memory_limit_percent: ...
+          pod_memory_limit_percent: ...,
+          current_pod_count: ...
         },
         ...
       }
@@ -59,8 +60,9 @@ def collect_pod_metrics(namespace: str, window_size_seconds: int) -> MetricMap:
         if pod in lim_map:
             merged[pod].update(lim_map[pod])
 
-    # Add pod count for namespace
+    # Add per-namespace pod count (same for all pods in that namespace)
+    pod_count = len(all_pods)
     for pod in merged:
-        merged[pod]["current_pod_count"] = len(all_pods)
+        merged[pod]["current_pod_count"] = pod_count
 
     return merged

@@ -18,15 +18,10 @@ def merge_metrics(
     centrality_metrics: Optional[MetricMap] = None,
     scaling_decision: Optional[MetricMap] = None,
 ) -> MetricMap:
-    """
-    Merge all metric layers into a single flat dict.
-    Later cleaned + ordered by dataset_row_builder.
-    """
 
-    merged: MetricMap = {}
-    merged.update(base or {})
+    merged: MetricMap = dict(base)
 
-    for m in [
+    for block in [
         node_metrics,
         pod_metrics,
         app_metrics,
@@ -35,8 +30,9 @@ def merge_metrics(
         centrality_metrics,
         scaling_decision,
     ]:
-        if m:
-            merged.update(m)
+        if block:
+            merged.update(block)
 
-    logger.debug("Merged metrics keys: %s", list(merged.keys()))
+    logger.debug("Merged metrics: %s", list(merged.keys()))
+
     return merged

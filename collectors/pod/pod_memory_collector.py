@@ -12,13 +12,17 @@ client = HTTPClient(PROMETHEUS_URL)
 
 def collect_pod_memory_usage(namespace: str) -> Dict[str, Dict[str, float]]:
     """
-    Collect pod-level memory usage (RSS).
+    Collect pod-level memory usage in MB.
+
+    Metric source:
+      container_memory_usage_bytes
 
     PromQL:
-      container_memory_usage_bytes{namespace="<ns>", pod!=""}
+      container_memory_usage_bytes{namespace="<ns>", pod!="", image!=""}
     """
     query = (
-        f"container_memory_usage_bytes{{namespace=\"{namespace}\", pod!=\"\", image!=\"\"}}"
+        "container_memory_usage_bytes"
+        f'{{namespace="{namespace}", pod!="", image!=""}}'
     )
 
     logger.info("Querying pod memory: %s", query)
@@ -29,7 +33,6 @@ def collect_pod_memory_usage(namespace: str) -> Dict[str, Dict[str, float]]:
         return {}
 
     results = data.get("data", {}).get("result", [])
-
     mem_map: Dict[str, List[float]] = {}
 
     for item in results:
@@ -38,14 +41,16 @@ def collect_pod_memory_usage(namespace: str) -> Dict[str, Dict[str, float]]:
         if not pod:
             continue
 
-        value = float(item.get("value", [None, "0"])[1])
-        mem_mb = value / (1024 * 1024)
+        raw_val = item.get("value", [None, "0"])[1]
+        try:
+            bytes_val = float(raw_val)
+        except (TypeError, ValueError):
+            bytes_val = 0.0
 
+        mem_mb = bytes_val / (1024 * 1024)
         mem_map.setdefault(pod, []).append(mem_mb)
 
-    # Aggregate
     out: Dict[str, Dict[str, float]] = {}
-
     for pod, values in mem_map.items():
         out[pod] = {
             "pod_memory_usage_mb_avg": safe_avg(values),

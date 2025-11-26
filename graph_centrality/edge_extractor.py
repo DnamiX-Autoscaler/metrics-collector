@@ -8,7 +8,8 @@ from utils.logger import get_logger
 logger = get_logger(__name__)
 client = HTTPClient(PROMETHEUS_URL)
 
-Edge = Tuple[str, str, float]  # (source_service, destination_service, weight_rps)
+# (source_service, destination_service, weight_rps)
+Edge = Tuple[str, str, float]
 
 
 def extract_edges(
@@ -37,8 +38,8 @@ def extract_edges(
 
     Returns:
       [
-        ("product-service", "order-service", 12.3),  # 12.3 RPS
-        ("order-service", "payment-service", 5.7),
+        ("product-service", "order-service", 12.3),
+        ("order-service", "store-front", 5.7),
         ...
       ]
     """
@@ -75,7 +76,7 @@ def extract_edges(
         except (TypeError, ValueError):
             rps = 0.0
 
-        # filter out ultra-low noise edges
+        # ultra-low noise edges ain karanna
         if rps < min_rps_threshold:
             continue
 

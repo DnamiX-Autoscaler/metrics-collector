@@ -12,18 +12,22 @@ client = HTTPClient(PROMETHEUS_URL)
 
 def collect_pod_cpu_usage(namespace: str, window_size_seconds: int) -> Dict[str, Dict[str, float]]:
     """
-    Collect per-pod CPU usage using container_cpu_usage_seconds_total.
+    Collect per-pod CPU usage in percentage.
+
+    Metric source:
+      container_cpu_usage_seconds_total
 
     PromQL:
-      rate(container_cpu_usage_seconds_total{namespace="<ns>", pod!=""}[window])
+      rate(container_cpu_usage_seconds_total{namespace="<ns>", pod!="", image!=""}[window])
 
-    Converts CPU cores → CPU percentage:
-      cpu_percent = cpu_core_usage * 100
+    Then:
+      cpu_percent = cpu_cores * 100
     """
     range_selector = f"[{window_size_seconds}s]"
 
     query = (
-        f"rate(container_cpu_usage_seconds_total{{namespace=\"{namespace}\", pod!=\"\", image!=\"\"}}"
+        "rate(container_cpu_usage_seconds_total"
+        f'{{namespace="{namespace}", pod!="", image!=""}}'
         f"{range_selector})"
     )
 
@@ -35,7 +39,6 @@ def collect_pod_cpu_usage(namespace: str, window_size_seconds: int) -> Dict[str,
         return {}
 
     results = data.get("data", {}).get("result", [])
-
     pod_map: Dict[str, List[float]] = {}
 
     for item in results:
@@ -44,12 +47,15 @@ def collect_pod_cpu_usage(namespace: str, window_size_seconds: int) -> Dict[str,
         if not pod:
             continue
 
-        value = float(item.get("value", [None, "0"])[1])
-        cpu_percent = value * 100  # CPU cores → %
+        raw_val = item.get("value", [None, "0"])[1]
+        try:
+            cores = float(raw_val)
+        except (TypeError, ValueError):
+            cores = 0.0
 
+        cpu_percent = cores * 100.0
         pod_map.setdefault(pod, []).append(cpu_percent)
 
-    # Aggregate
     out: Dict[str, Dict[str, float]] = {}
 
     for pod, values in pod_map.items():

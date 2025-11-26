@@ -22,7 +22,7 @@ def compute_all_centralities(
     min_rps_threshold: float = 0.01,
 ) -> CentralityMap:
     """
-    MASTER function – this is where your novelty lives.
+    MASTER function – THIS is your novelty.
 
     1) Build service-level dependency graph from Istio traffic (G)
     2) Compute 4 centrality measures:

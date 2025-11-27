@@ -54,17 +54,26 @@ else:
 
 def _pick_representative_node(node_metrics: Dict[str, Dict[str, float]]) -> Dict[str, Any]:
     """
-    Docker Desktop / single-node cluster assumption:
-      - node_metrics: { "docker-desktop": { ... } }
+    Fix for Docker Desktop / single-node clusters:
+    Prometheus gives instance keys like:
+        "192.168.65.3:10250"
+    But dataset expects stable node names like:
+        "docker-desktop"
 
-    We pick first node and attach node_name.
+    So we normalize ALL node metrics to:
+        node_name = "docker-desktop"
     """
+
     if not node_metrics:
         return {}
 
-    node_name = next(iter(node_metrics.keys()))
-    metrics = dict(node_metrics[node_name])
-    metrics["node_name"] = node_name
+    # pick first entry
+    first_key = next(iter(node_metrics.keys()))
+    metrics = dict(node_metrics[first_key])
+
+    # force consistent node name
+    metrics["node_name"] = "docker-desktop"
+
     return metrics
 
 

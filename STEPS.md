@@ -31,6 +31,9 @@ venv\Scripts\activate
 ## Pipeline run
 python main.py 
 
+## One File Run
+python collectors/node/node_cpu_collector.py
+
 
 # DATASET VERIFY
 

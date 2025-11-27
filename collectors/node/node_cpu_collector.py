@@ -1,5 +1,8 @@
 # collectors/node/node_cpu_collector.py
 
+import sys, os
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
+
 from typing import Dict
 from config.settings import PROMETHEUS_URL
 from utils.http_client import HTTPClient
@@ -11,37 +14,35 @@ client = HTTPClient(PROMETHEUS_URL)
 
 def collect_node_cpu_usage(window_size_seconds: int) -> Dict[str, Dict[str, float]]:
     """
-    CPU Usage (%) per node.
-
-    PromQL:
-    100 - (avg by(instance)(irate(node_cpu_seconds_total{mode="idle"}[window])) * 100)
+    CPU Usage % using cAdvisor metrics.
     """
 
     query = (
-        "100 - (avg by(instance)("
-        f"irate(node_cpu_seconds_total{{mode=\"idle\"}}[{window_size_seconds}s])"
-        ") * 100)"
+        f"sum by (instance) (rate(container_cpu_usage_seconds_total[{window_size_seconds}s])) * 100"
     )
 
     logger.info("Querying node CPU usage: %s", query)
+
     data = client.get("/api/v1/query", params={"query": query})
 
     if data.get("status") != "success":
-        logger.error("Node CPU query failed")
+        logger.error("CPU query failed: %s", data.get("error", "Unknown error"))
         return {}
 
-    results = data["data"]["result"]
     cpu_map = {}
 
-    for item in results:
+    for item in data["data"].get("result", []):
         instance = item["metric"].get("instance", "unknown-node")
-        value = item.get("value", [None, "0"])[1]
+        raw_val = item.get("value", [None, "0"])[1]
 
         try:
-            cpu = float(value)
+            cpu = float(raw_val)
         except:
             cpu = 0.0
 
-        cpu_map[instance] = {"node_cpu_usage_percent": cpu}
+        if cpu < 0: cpu = 0.0
+        if cpu > 100: cpu = 100.0
+
+        cpu_map[instance] = {"node_cpu_usage_percent": round(cpu, 3)}
 
     return cpu_map

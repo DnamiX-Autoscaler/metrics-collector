@@ -51,7 +51,7 @@ def collect_node_cpu_usage(window_size_seconds: int) -> Dict[str, Dict[str, floa
         if cpu_percent < 0:
             cpu_percent = 0.0
 
-        # 🔥 100% HARD CAP
+        # 100% HARD CAP
         if cpu_percent > 100:
             logger.warning(
                 "CPU usage %.3f%% for %s exceeded 100%% — capped.",

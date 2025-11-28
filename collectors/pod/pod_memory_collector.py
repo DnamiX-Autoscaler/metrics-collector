@@ -9,30 +9,22 @@ from utils.logger import get_logger
 logger = get_logger(__name__)
 client = HTTPClient(PROMETHEUS_URL)
 
-
 def collect_pod_memory_usage(namespace: str) -> Dict[str, Dict[str, float]]:
     """
-    Collect pod-level memory usage in MB.
-
-    Metric source:
-      container_memory_usage_bytes
-
-    PromQL:
-      container_memory_usage_bytes{namespace="<ns>", pod!="", image!=""}
+    Docker Desktop FIX:
+    container_memory_usage_bytes also has NO namespace label.
     """
-    query = (
-        "container_memory_usage_bytes"
-        f'{{namespace="{namespace}", pod!="", image!=""}}'
-    )
 
-    logger.info("Querying pod memory: %s", query)
+    query = 'container_memory_usage_bytes{pod!=""}'
+
+    logger.info("Querying POD Memory (docker-desktop fix): %s", query)
     data = client.get("/api/v1/query", params={"query": query})
 
     if data.get("status") != "success":
         logger.error("Pod Memory query failed: %s", data)
         return {}
 
-    results = data.get("data", {}).get("result", [])
+    results = data["data"].get("result", [])
     mem_map: Dict[str, List[float]] = {}
 
     for item in results:
@@ -41,16 +33,15 @@ def collect_pod_memory_usage(namespace: str) -> Dict[str, Dict[str, float]]:
         if not pod:
             continue
 
-        raw_val = item.get("value", [None, "0"])[1]
         try:
-            bytes_val = float(raw_val)
-        except (TypeError, ValueError):
+            bytes_val = float(item["value"][1])
+        except:
             bytes_val = 0.0
 
         mem_mb = bytes_val / (1024 * 1024)
         mem_map.setdefault(pod, []).append(mem_mb)
 
-    out: Dict[str, Dict[str, float]] = {}
+    out = {}
     for pod, values in mem_map.items():
         out[pod] = {
             "pod_memory_usage_mb_avg": safe_avg(values),

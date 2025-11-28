@@ -13,44 +13,34 @@ logger = get_logger(__name__)
 MetricMap = Dict[str, Any]
 
 
-def collect_app_metrics(
-    namespace: str,
-    service_name: str,
-    window_size_seconds: int
-) -> MetricMap:
-    """
-    FINAL APP-LEVEL METRICS AGGREGATOR (Prometheus app-client based).
+# collectors/app/app_aggregator.py
 
-    Collects:
-      ✔ request_rate_rps
-      ✔ success_rate_percent
-      ✔ error_rate_percent
-      ✔ http_4xx_rate_percent
-      ✔ http_5xx_rate_percent
-      ✔ latency_p50_ms
-      ✔ latency_p95_ms
-      ✔ latency_p99_ms
-      ✔ queue_length
-      ✔ application_saturation_percent
-    """
+def collect_app_metrics(namespace: str, service_name: str, window_size_seconds: int) -> Dict[str, Any]:
 
-    logger.info(
-        "Collecting APP metrics for service=%s in namespace=%s (window=%ss)",
-        service_name,
-        namespace,
-        window_size_seconds,
-    )
+    # Auto-map pod-prefix to service label in metrics
+    service_label = service_name.replace("-", "_")
 
-    rps = collect_rps(namespace, service_name, window_size_seconds)
+    candidate_labels = [
+        service_name,                  # order-service
+        service_label,                 # order_service
+        service_name.split("-")[0],    # order
+    ]
+
+    # Try multiple service labels
+    for candidate in candidate_labels:
+        rps = collect_rps(namespace, candidate, window_size_seconds)
+        if rps.get("request_rate_rps", 0) > 0:
+            service_name = candidate
+            break
+
     errors = collect_error_rates(namespace, service_name, window_size_seconds)
     latency = collect_latency(namespace, service_name, window_size_seconds)
     queue = collect_queue_metrics(namespace, service_name)
 
-    metrics: MetricMap = {}
+    metrics = {}
     metrics.update(rps)
     metrics.update(errors)
     metrics.update(latency)
     metrics.update(queue)
 
-    logger.info("APP metrics collected for %s/%s", namespace, service_name)
     return metrics

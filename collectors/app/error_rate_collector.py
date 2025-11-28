@@ -1,5 +1,8 @@
+# collectors/app/error_rate_collector.py
+
 from typing import Dict
-from config.settings import PROMETHEUS_URL
+import os
+from config.settings import PROMETHEUS_URL, ERROR_TEST_MODE
 from utils.http_client import HTTPClient
 from utils.logger import get_logger
 
@@ -8,6 +11,21 @@ client = HTTPClient(PROMETHEUS_URL)
 
 
 def collect_error_rates(namespace: str, service_name: str, window_size_seconds: int) -> Dict[str, float]:
+
+    # -----------------------------------------------------------
+    # TEST MODE – Inject synthetic values (for dataset pipeline)
+    # -----------------------------------------------------------
+    if ERROR_TEST_MODE:
+        logger.warning("[ERROR-TEST] Injecting synthetic error/success metrics")
+
+        return {
+            "success_rate_percent": 92.5,
+            "error_rate_percent": 7.5,
+            "http_4xx_rate_percent": 5.0,
+            "http_5xx_rate_percent": 2.5,
+        }
+
+    # ---------------- NORMAL PROMETHEUS QUERY MODE ----------------
 
     q_total = (
         "sum(rate(http_requests_total"
@@ -36,12 +54,13 @@ def collect_error_rates(namespace: str, service_name: str, window_size_seconds: 
         error_rate = 0.0
         success_rate = 0.0
 
-    # 4xx / 5xx breakdown
+    # 4xx
     q_4xx = (
         "sum(rate(http_requests_total"
         f'{{service="{service_name}", namespace="{namespace}", status=~"4.."}}[{window_size_seconds}s]))'
     )
 
+    # 5xx
     q_5xx = (
         "sum(rate(http_requests_total"
         f'{{service="{service_name}", namespace="{namespace}", status=~"5.."}}[{window_size_seconds}s]))'

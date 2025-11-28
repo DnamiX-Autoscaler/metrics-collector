@@ -39,3 +39,11 @@ OUTPUT_DATASET_PATH = os.getenv("OUTPUT_DATASET_PATH", "dataset.csv")
 # -------------------------------------------------------------------
 SCRAPE_INTERVAL_SECONDS = int(os.getenv("SCRAPE_INTERVAL_SECONDS", 30))
 WINDOW_SIZE_SECONDS = int(os.getenv("WINDOW_SIZE_SECONDS", 30))
+
+# -------------------------------------------------------------------
+# TESTING OVERRIDES
+# -------------------------------------------------------------------
+
+QUEUE_TEST_MODE = os.getenv("QUEUE_TEST_MODE", "0") == "1"
+ERROR_TEST_MODE = os.getenv("ERROR_TEST_MODE", "0") == "1"
+

@@ -49,7 +49,15 @@ output/raw/
 # RUN TESTS
 
 ## All tests folder run
-pytest -q 
+pytest -q
+
+## Run with injection
+$env:QUEUE_TEST_MODE="1"
+python main.py
+------------------
+$env:ERROR_TEST_MODE="1"
+$env:QUEUE_TEST_MODE="1"
+python main.py
 
 
 ### RUN PROMETHEUS

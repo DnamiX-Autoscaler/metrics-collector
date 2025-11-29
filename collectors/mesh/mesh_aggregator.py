@@ -1,5 +1,3 @@
-# collectors/mesh/mesh_aggregator.py
-
 from typing import Dict, Any
 from utils.logger import get_logger
 
@@ -21,10 +19,9 @@ def collect_mesh_metrics(
     window_size_seconds: int,
 ) -> MetricMap:
     """
-    Aggregate ALL service-mesh–level metrics for a given service.
+    Collect all Istio service-mesh metrics for the given service.
 
-    Returns flat dict with keys matching dataset schema:
-
+    Return keys matching dataset schema:
       - inbound_request_rate_rps
       - outbound_request_rate_rps
       - mesh_latency_p95_ms
@@ -33,22 +30,37 @@ def collect_mesh_metrics(
       - mesh_tls_error_rate_percent
     """
 
-    logger.info("Collecting MESH metrics for %s/%s", namespace, service_name)
+    logger.info(f"[MESH] Collecting metrics for {namespace}/{service_name}")
 
-    ingress = collect_mesh_ingress(namespace, service_name, window_size_seconds)
-    egress = collect_mesh_egress(namespace, service_name, window_size_seconds)
-    latency = collect_mesh_latency(namespace, service_name, window_size_seconds)
-    retry = collect_mesh_retry_rate(namespace, service_name, window_size_seconds)
-    tcp = collect_mesh_tcp_connections(namespace, service_name)
-    tls_errors = collect_mesh_tls_errors(namespace, service_name, window_size_seconds)
+    try:
+        # Collect all mesh metrics with proper parameter passing
+        ingress = collect_mesh_ingress(namespace, service_name, window_size_seconds)
+        egress = collect_mesh_egress(namespace, service_name, window_size_seconds)
+        latency = collect_mesh_latency(namespace, service_name, window_size_seconds)
+        retry = collect_mesh_retry_rate(namespace, service_name, window_size_seconds)
+        tcp = collect_mesh_tcp_connections(namespace, service_name, window_size_seconds)
+        tls_errors = collect_mesh_tls_errors(namespace, service_name, window_size_seconds)
 
-    combined: MetricMap = {}
-    combined.update(ingress)
-    combined.update(egress)
-    combined.update(latency)
-    combined.update(retry)
-    combined.update(tcp)
-    combined.update(tls_errors)
+        combined: MetricMap = {
+            **ingress,
+            **egress,
+            **latency,
+            **retry,
+            **tcp,
+            **tls_errors,
+        }
 
-    logger.debug("Mesh metrics combined keys: %s", list(combined.keys()))
-    return combined
+        logger.debug(f"[MESH] Combined metrics for {service_name}: {combined}")
+        return combined
+
+    except Exception as e:
+        logger.exception(f"[MESH] Failed to collect metrics for {service_name}: {e}")
+        # Return safe zeroed metrics to avoid dataset row failure
+        return {
+            "inbound_request_rate_rps": 0.0,
+            "outbound_request_rate_rps": 0.0,
+            "mesh_latency_p95_ms": 0.0,
+            "mesh_retry_rate_rps": 0.0,
+            "mesh_tcp_open_connections": 0.0,
+            "mesh_tls_error_rate_percent": 0.0,
+        }

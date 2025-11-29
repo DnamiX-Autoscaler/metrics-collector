@@ -1,44 +1,18 @@
-# collectors/mesh/mesh_tcp_collector.py
-
 from typing import Dict
-from config.settings import PROMETHEUS_URL
-from utils.http_client import HTTPClient
-from utils.logger import get_logger
+from collectors.mesh.service_name_mapper import map_mesh_label
+from collectors.mesh.promql_helper import promql_try_candidates
 
-logger = get_logger(__name__)
-client = HTTPClient(PROMETHEUS_URL)
-
-
-def collect_mesh_tcp_connections(
-    namespace: str,
-    service_name: str,
-) -> Dict[str, float]:
+def collect_mesh_tcp_connections(namespace: str, service_name: str, window_size_seconds: int = 30) -> Dict[str, float]:
     """
-    TCP open connections for service.
-
-    PromQL (Envoy / Istio):
-      sum(envoy_tcp_downstream_cx_active{
-          service="<svc>",
-          namespace="<ns>"
-      })
+    Collect active TCP connections from Envoy for the given service.
+    Note: window_size_seconds is not used for this instant metric but kept for consistency.
     """
+    candidates = map_mesh_label(service_name)
 
-    query = (
-        "sum(envoy_tcp_downstream_cx_active{"
-        f'service="{service_name}", '
-        f'namespace="{namespace}"'
-        "})"
+    query_template = (
+        'sum(envoy_tcp_downstream_cx_active{service="{{name}}", '
+        'namespace="{{namespace}}"})'
     )
 
-    logger.info("Mesh TCP open connections query: %s", query)
-
-    data = client.get("/api/v1/query", params={"query": query})
-
-    try:
-        value = float(data["data"]["result"][0]["value"][1])
-    except Exception:
-        value = 0.0
-
-    return {
-        "mesh_tcp_open_connections": value,
-    }
+    value = promql_try_candidates(query_template, candidates, namespace, window_size_seconds)
+    return {"mesh_tcp_open_connections": value}

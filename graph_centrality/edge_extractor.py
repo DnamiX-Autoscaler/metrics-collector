@@ -8,57 +8,28 @@ from utils.logger import get_logger
 logger = get_logger(__name__)
 client = HTTPClient(PROMETHEUS_URL)
 
-# (source_service, destination_service, weight_rps)
 Edge = Tuple[str, str, float]
-
 
 def extract_edges(
     namespace: str,
     window_size_seconds: int,
     min_rps_threshold: float = 0.01,
 ) -> List[Edge]:
-    """
-    Istio metrics → Service-to-service edges.
-
-    Uses Istio metric:
-      istio_requests_total{
-          source_workload!="",
-          destination_service!="",
-          namespace="<ns>"
-      }
-
-    PromQL:
-      sum(
-        rate(istio_requests_total{
-            source_workload!="",
-            destination_service!="",
-            namespace="<ns>"
-        }[<window>s])
-      ) by (source_workload, destination_service)
-
-    Returns:
-      [
-        ("product-service", "order-service", 12.3),
-        ("order-service", "store-front", 5.7),
-        ...
-      ]
-    """
 
     range_selector = f"[{window_size_seconds}s]"
+
+    # FIXED QUERY FOR ISTIO 1.17 → 1.27+
     query = (
         "sum(rate(istio_requests_total{"
-        f'namespace="{namespace}", '
-        'source_workload!="", '
-        'destination_service!=""'
-        f"}}{range_selector})) by (source_workload, destination_service)"
+        f'destination_workload_namespace="{namespace}", '
+        'source_workload!="" ,'
+        'destination_workload!=""'
+        f"}}{range_selector})) by (source_workload, destination_workload)"
     )
 
     logger.info("Graph edge extractor PromQL: %s", query)
-    data = client.get("/api/v1/query", params={"query": query})
 
-    if data.get("status") != "success":
-        logger.error("Edge extraction Prometheus query failed: %s", data)
-        return []
+    data = client.get("/api/v1/query", params={"query": query})
 
     results = data.get("data", {}).get("result", [])
     edges: List[Edge] = []
@@ -66,21 +37,20 @@ def extract_edges(
     for item in results:
         metric = item.get("metric", {})
         src = metric.get("source_workload")
-        dst = metric.get("destination_service")
+        dst = metric.get("destination_workload")
 
         if not src or not dst:
             continue
 
         try:
-            rps = float(item.get("value", [None, "0"])[1])
-        except (TypeError, ValueError):
+            rps = float(item["value"][1])
+        except:
             rps = 0.0
 
-        # ultra-low noise edges ain karanna
         if rps < min_rps_threshold:
             continue
 
         edges.append((src, dst, rps))
 
-    logger.info("Extracted %d edges from Istio traffic graph", len(edges))
+    logger.info("Extracted %d edges", len(edges))
     return edges

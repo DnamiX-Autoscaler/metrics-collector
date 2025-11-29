@@ -46,10 +46,30 @@ output/dataset/metrics_dataset.jsonl
 ## Raw Prometheus dumps
 output/raw/ 
 
-# RUN TESTS
+# RUN
 
 ## All tests folder run
 pytest -q
+
+### RUN PROMETHEUS
+kubectl -n monitoring port-forward svc/prometheus-kube-prometheus-prometheus 9090:9090
+
+### GET ALL PODS
+kubectl get pods -o wide
+
+### GET ALL SERVICES
+kubectl get svc -n default
+
+### DEPLOYED YAML
+kubectl apply -f src/store-admin/service.yaml
+
+### RESTART DEPLOYMENT
+kubectl rollout restart deploy store-front
+
+### DELETE DEPLOYMENT
+kubectl delete -f mesh-metrics-test.yaml
+
+# RUN TESTS
 
 ## Run with injection
 $env:QUEUE_TEST_MODE="1"
@@ -60,12 +80,12 @@ $env:QUEUE_TEST_MODE="1"
 python main.py
 
 
-### RUN PROMETHEUS
-kubectl -n monitoring port-forward svc/prometheus-kube-prometheus-prometheus 9090:9090
 
-### GET ALL PODS
-kubectl get pods -o wide
 
-### GET ALL SERVICES
-kubectl get svc -n default
+
+
+
+
+
+
 

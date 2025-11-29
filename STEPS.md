@@ -68,6 +68,10 @@ kubectl rollout restart deploy store-front
 
 ### DELETE DEPLOYMENT
 kubectl delete -f mesh-metrics-test.yaml
+kubectl delete -f tests/istio/mesh-traffic-generator.yaml
+
+### TRAFIC GENERATOR
+kubectl get pods -n default | findstr mesh-traffic-generator
 
 # RUN TESTS
 
@@ -77,6 +81,10 @@ python main.py
 ------------------
 $env:ERROR_TEST_MODE="1"
 $env:QUEUE_TEST_MODE="1"
+python main.py
+------------------
+$env:WINDOW_SIZE_SECONDS="60"
+$env:SCRAPE_INTERVAL_SECONDS="99999"
 python main.py
 
 

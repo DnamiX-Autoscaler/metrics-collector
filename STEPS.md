@@ -83,6 +83,11 @@ kubectl config current-context
 # API
 ## RUN UVICORN
 python -m uvicorn api.server:app --host 0.0.0.0 --port 8000 --reload
+python -m uvicorn api.server:app --reload
+
+# ENDPOINTS
+http://localhost:8000/metrics/live
+http://localhost:8000/metrics/live-stream
 
 # RUN TESTS
 

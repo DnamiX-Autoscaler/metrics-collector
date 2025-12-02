@@ -1,6 +1,7 @@
-# api/routes.py
-
 from fastapi import APIRouter
+from fastapi.responses import StreamingResponse
+import json
+import time
 from typing import Dict, Any
 
 from collectors.node.node_aggregator import collect_node_metrics
@@ -15,6 +16,9 @@ from config.settings import TARGET_SERVICES, TARGET_NAMESPACES, WINDOW_SIZE_SECO
 router = APIRouter()
 
 
+# ----------------------------------------------------
+# 1) OLD ENDPOINT — ONE-TIME METRICS (static fetch)
+# ----------------------------------------------------
 @router.get("/metrics/live")
 def get_live_metrics() -> Dict[str, Any]:
 
@@ -23,37 +27,14 @@ def get_live_metrics() -> Dict[str, Any]:
     for namespace in TARGET_NAMESPACES:
         for svc in TARGET_SERVICES:
 
-            # 1. Node metrics
-            node = collect_node_metrics(
-                window_start_ts=0,
-                window_size_seconds=WINDOW_SIZE_SECONDS
-            )
+            node = collect_node_metrics(0, WINDOW_SIZE_SECONDS)
+            pod = collect_pod_metrics(namespace, WINDOW_SIZE_SECONDS)
+            app = collect_app_metrics(namespace, svc, WINDOW_SIZE_SECONDS)
+            mesh = collect_mesh_metrics(namespace, svc, WINDOW_SIZE_SECONDS)
 
-            # 2. Pod metrics
-            pod = collect_pod_metrics(
-                namespace=namespace,
-                window_size_seconds=WINDOW_SIZE_SECONDS
-            )
-
-            # 3. App metrics
-            app = collect_app_metrics(
-                namespace=namespace,
-                service_name=svc,
-                window_size_seconds=WINDOW_SIZE_SECONDS
-            )
-
-            # 4. Mesh metrics
-            mesh = collect_mesh_metrics(
-                namespace=namespace,
-                service_name=svc,
-                window_size_seconds=WINDOW_SIZE_SECONDS
-            )
-
-            # 5. Centrality
             centrality_map = compute_all_centralities(namespace, WINDOW_SIZE_SECONDS)
             centrality = centrality_map.get(svc, {})
 
-            # 6. merge
             merged = merge_metrics(
                 base={},
                 node_metrics=list(node.values())[0] if node else {},
@@ -63,22 +44,79 @@ def get_live_metrics() -> Dict[str, Any]:
                 centrality_metrics=centrality
             )
 
-            # 7. Final row format
             row = build_dataset_row(
-            cluster_id=CLUSTER_ID,
-            namespace=namespace,
-            service_name=svc,
-            window_size_seconds=WINDOW_SIZE_SECONDS,
-            merged_metrics=merged,
-            centrality_for_service=centrality,
-            scaling_decision={
-                "current_replicas": merged.get("current_pod_count", 1),
-                "recommended_replicas": merged.get("current_pod_count", 1),
-                "scale_direction": "NONE",
-            }
-)
-
+                cluster_id=CLUSTER_ID,
+                namespace=namespace,
+                service_name=svc,
+                window_size_seconds=WINDOW_SIZE_SECONDS,
+                merged_metrics=merged,
+                centrality_for_service=centrality,
+                scaling_decision={
+                    "current_replicas": merged.get("current_pod_count", 1),
+                    "recommended_replicas": merged.get("current_pod_count", 1),
+                    "scale_direction": "NONE",
+                }
+            )
 
             response[f"{namespace}/{svc}"] = row
 
     return response
+
+
+
+# ----------------------------------------------------
+# 2) NEW ENDPOINT — REAL-TIME STREAM (SSE)
+# ----------------------------------------------------
+def generate_live_stream():
+    """Continuous real-time metrics generator using SSE."""
+
+    while True:
+        response = {}
+
+        for namespace in TARGET_NAMESPACES:
+            for svc in TARGET_SERVICES:
+
+                node = collect_node_metrics(0, WINDOW_SIZE_SECONDS)
+                pod = collect_pod_metrics(namespace, WINDOW_SIZE_SECONDS)
+                app = collect_app_metrics(namespace, svc, WINDOW_SIZE_SECONDS)
+                mesh = collect_mesh_metrics(namespace, svc, WINDOW_SIZE_SECONDS)
+
+                centrality_map = compute_all_centralities(namespace, WINDOW_SIZE_SECONDS)
+                centrality = centrality_map.get(svc, {})
+
+                merged = merge_metrics(
+                    base={},
+                    node_metrics=list(node.values())[0] if node else {},
+                    pod_metrics=pod.get(svc, {}),
+                    app_metrics=app,
+                    mesh_metrics=mesh,
+                    centrality_metrics=centrality
+                )
+
+                row = build_dataset_row(
+                    cluster_id=CLUSTER_ID,
+                    namespace=namespace,
+                    service_name=svc,
+                    window_size_seconds=WINDOW_SIZE_SECONDS,
+                    merged_metrics=merged,
+                    centrality_for_service=centrality,
+                    scaling_decision={
+                        "current_replicas": merged.get("current_pod_count", 1),
+                        "recommended_replicas": merged.get("current_pod_count", 1),
+                        "scale_direction": "NONE",
+                    }
+                )
+
+                response[f"{namespace}/{svc}"] = row
+
+        # ---- SSE format ----
+        yield f"data: {json.dumps(response)}\n\n"
+
+        time.sleep(2)   # update interval (you can change to 1 or 0.5 seconds)
+
+
+
+@router.get("/metrics/live-stream")
+def live_stream():
+    """SSE endpoint for continuous streaming."""
+    return StreamingResponse(generate_live_stream(), media_type="text/event-stream")

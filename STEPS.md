@@ -46,7 +46,7 @@ output/dataset/metrics_dataset.jsonl
 ## Raw Prometheus dumps
 output/raw/ 
 
-# RUN
+# TEST RUN
 
 ## All tests folder run
 pytest -q
@@ -72,6 +72,17 @@ kubectl delete -f tests/istio/mesh-traffic-generator.yaml
 
 ### TRAFIC GENERATOR
 kubectl get pods -n default | findstr mesh-traffic-generator
+
+## SWITCH LOCAL AND PROD
+kubectl config use-context docker-desktop
+kubectl config use-context sr-research-aks
+
+### VERIFY IT
+kubectl config current-context
+
+# API
+## RUN UVICORN
+python -m uvicorn api.server:app --host 0.0.0.0 --port 8000 --reload
 
 # RUN TESTS
 

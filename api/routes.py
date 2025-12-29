@@ -24,6 +24,8 @@ from api.controllers.generate_stress_index_stream import (
 from api.controllers.get_runtime_config import get_runtime_config
 from api.controllers.get_targets_config import get_targets_config
 from api.controllers.get_metrics_config import get_metrics_config
+from api.controllers.get_running_pods import get_running_pods
+from api.controllers.get_running_services import get_running_services
 
 router = APIRouter()
 
@@ -151,3 +153,17 @@ def targets_config():
 @router.get("/config/metrics")
 def metrics_config():
     return get_metrics_config()
+
+#----------------------------------------------------
+# 15) RUNNING PODS INFO
+#----------------------------------------------------
+@router.get("/runtime/pods")
+def runtime_pods(namespace: str = "default"):
+    return get_running_pods(namespace)
+
+#----------------------------------------------------
+# 16) RUNNING SERVICES INFO
+#----------------------------------------------------
+@router.get("/runtime/services")
+def runtime_services(namespace: str = "default"):
+    return get_running_services(namespace)

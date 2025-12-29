@@ -26,6 +26,7 @@ from api.controllers.get_targets_config import get_targets_config
 from api.controllers.get_metrics_config import get_metrics_config
 from api.controllers.get_running_pods import get_running_pods
 from api.controllers.get_running_services import get_running_services
+from api.controllers.get_monitoring_services import get_monitoring_services
 
 router = APIRouter()
 
@@ -167,3 +168,10 @@ def runtime_pods(namespace: str = "default"):
 @router.get("/runtime/services")
 def runtime_services(namespace: str = "default"):
     return get_running_services(namespace)
+
+#----------------------------------------------------
+# 17) MONITORING SERVICES INFO
+#----------------------------------------------------
+@router.get("/runtime/monitoring/services")
+def runtime_monitoring_services(namespace: str = "monitoring"):
+    return get_monitoring_services(namespace)

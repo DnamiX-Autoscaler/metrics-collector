@@ -15,6 +15,9 @@ from api.controllers.generate_app_level_stream import generate_app_level_stream
 from api.controllers.generate_service_mesh_stream import (
     generate_service_mesh_stream
 )
+from api.controllers.generate_graph_centrality_stream import (
+    generate_graph_centrality_stream
+)
 
 router = APIRouter()
 
@@ -99,5 +102,15 @@ def app_live_stream():
 def mesh_live_stream():
     return StreamingResponse(
         generate_service_mesh_stream(),
+        media_type="text/event-stream"
+    )
+
+#----------------------------------------------------
+# 10) REAL-TIME GRAPH CENTRALITY METRICS STREAM (SSE)
+#----------------------------------------------------    
+@router.get("/graph/centrality/live-stream")
+def graph_centrality_live_stream():
+    return StreamingResponse(
+        generate_graph_centrality_stream(),
         media_type="text/event-stream"
     )

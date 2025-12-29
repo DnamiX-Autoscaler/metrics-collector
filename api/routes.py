@@ -6,6 +6,9 @@ from api.controllers.get_live_metrics import get_live_metrics
 from api.controllers.generate_live_stream import generate_live_stream
 from api.controllers.get_live_processes import get_live_processes
 from api.controllers.generate_process_stream import generate_process_stream
+from api.controllers.generate_cluster_performance_stream import (
+    generate_cluster_performance_stream
+)
 
 router = APIRouter()
 
@@ -40,5 +43,15 @@ def live_process_endpoint():
 def process_live_stream():
     return StreamingResponse(
         generate_process_stream(),
+        media_type="text/event-stream"
+    )
+
+#----------------------------------------------------
+# 5) REAL-TIME CLUSTER PERFORMANCE STREAM (SSE)
+#----------------------------------------------------
+@router.get("/performance/live-stream")
+def performance_live_stream():
+    return StreamingResponse(
+        generate_cluster_performance_stream(),
         media_type="text/event-stream"
     )

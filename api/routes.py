@@ -5,6 +5,7 @@ from typing import Dict, Any
 from api.controllers.get_live_metrics import get_live_metrics
 from api.controllers.generate_live_stream import generate_live_stream
 from api.controllers.get_live_processes import get_live_processes
+from api.controllers.generate_process_stream import generate_process_stream
 
 router = APIRouter()
 
@@ -31,3 +32,13 @@ def live_stream():
 @router.get("/process/live")
 def live_process_endpoint():
     return get_live_processes()
+
+#----------------------------------------------------
+# 4) REAL-TIME PROCESS STREAM (SSE)
+#----------------------------------------------------
+@router.get("/process/live-stream")
+def process_live_stream():
+    return StreamingResponse(
+        generate_process_stream(),
+        media_type="text/event-stream"
+    )

@@ -1,0 +1,52 @@
+def get_metrics_config():
+    return {
+        "node": [
+            "node_cpu_usage_percent",
+            "node_memory_usage_percent",
+            "node_network_rx_kbps",
+            "node_network_tx_kbps",
+            "node_disk_read_iops",
+            "node_disk_write_iops",
+        ],
+        "pod": [
+            "pod_cpu_usage_percent_avg",
+            "pod_cpu_usage_percent_p95",
+            "pod_memory_usage_mb_avg",
+            "pod_memory_usage_mb_p95",
+            "pod_restart_count",
+            "pod_cpu_limit_percent",
+            "pod_memory_limit_percent",
+        ],
+        "app": [
+            "request_rate_rps",
+            "success_rate_percent",
+            "error_rate_percent",
+            "http_4xx_rate_percent",
+            "http_5xx_rate_percent",
+            "latency_p50_ms",
+            "latency_p95_ms",
+            "latency_p99_ms",
+            "queue_length",
+            "application_saturation_percent",
+        ],
+        "mesh": [
+            "inbound_request_rate_rps",
+            "outbound_request_rate_rps",
+            "mesh_latency_p95_ms",
+            "mesh_retry_rate_rps",
+            "mesh_tcp_open_connections",
+            "mesh_tls_error_rate_percent",
+        ],
+        "centrality": [
+            "degree_centrality",
+            "betweenness_centrality",
+            "closeness_centrality",
+            "eigenvector_centrality",
+        ],
+        "stress_index": [
+            "cpu_pressure_index",
+            "memory_pressure_index",
+            "io_pressure_index",
+            "stress_index",
+        ],
+    }

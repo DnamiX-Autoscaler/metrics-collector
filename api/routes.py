@@ -21,6 +21,9 @@ from api.controllers.generate_graph_centrality_stream import (
 from api.controllers.generate_stress_index_stream import (
     generate_stress_index_stream
 )
+from api.controllers.get_runtime_config import get_runtime_config
+from api.controllers.get_targets_config import get_targets_config
+from api.controllers.get_metrics_config import get_metrics_config
 
 router = APIRouter()
 
@@ -127,3 +130,24 @@ def stress_index_live_stream():
         generate_stress_index_stream(),
         media_type="text/event-stream"
     )
+
+#----------------------------------------------------
+# 12) RUNTIME CONFIGURATION
+#----------------------------------------------------    
+@router.get("/config/runtime")
+def runtime_config():
+    return get_runtime_config()
+
+#----------------------------------------------------
+# 13) TARGETS CONFIGURATION
+#----------------------------------------------------
+@router.get("/config/targets")
+def targets_config():
+    return get_targets_config()
+
+#----------------------------------------------------
+# 14) METRICS CONFIGURATION
+#----------------------------------------------------
+@router.get("/config/metrics")
+def metrics_config():
+    return get_metrics_config()

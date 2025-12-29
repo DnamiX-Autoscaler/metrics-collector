@@ -18,6 +18,9 @@ from api.controllers.generate_service_mesh_stream import (
 from api.controllers.generate_graph_centrality_stream import (
     generate_graph_centrality_stream
 )
+from api.controllers.generate_stress_index_stream import (
+    generate_stress_index_stream
+)
 
 router = APIRouter()
 
@@ -112,5 +115,15 @@ def mesh_live_stream():
 def graph_centrality_live_stream():
     return StreamingResponse(
         generate_graph_centrality_stream(),
+        media_type="text/event-stream"
+    )
+
+#----------------------------------------------------
+# 11) REAL-TIME STRESS INDEX + SCALING SIGNALS STREAM (SSE)
+#----------------------------------------------------    
+@router.get("/stress-index/live-stream")
+def stress_index_live_stream():
+    return StreamingResponse(
+        generate_stress_index_stream(),
         media_type="text/event-stream"
     )

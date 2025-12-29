@@ -10,6 +10,7 @@ from api.controllers.generate_cluster_performance_stream import (
     generate_cluster_performance_stream
 )
 from api.controllers.generate_node_level_stream import generate_node_level_stream
+from api.controllers.generate_pod_level_stream import generate_pod_level_stream
 
 router = APIRouter()
 
@@ -64,5 +65,15 @@ def performance_live_stream():
 def node_live_stream():
     return StreamingResponse(
         generate_node_level_stream(),
+        media_type="text/event-stream"
+    )
+
+#----------------------------------------------------
+# 7) REAL-TIME POD-LEVEL METRICS STREAM (SSE)
+#----------------------------------------------------
+@router.get("/pods/live-stream")
+def pod_live_stream():
+    return StreamingResponse(
+        generate_pod_level_stream(),
         media_type="text/event-stream"
     )

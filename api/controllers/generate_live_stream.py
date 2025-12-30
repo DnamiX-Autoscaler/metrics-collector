@@ -8,7 +8,13 @@ from collectors.mesh.mesh_aggregator import collect_mesh_metrics
 from graph_centrality.compute_all import compute_all_centralities
 from processors.data_merger import merge_metrics
 from processors.dataset_row_builder import build_dataset_row
-from config.settings import TARGET_SERVICES, TARGET_NAMESPACES, WINDOW_SIZE_SECONDS, CLUSTER_ID
+from utils.pod_service_mapper import aggregate_pods_for_service
+from config.settings import (
+    TARGET_SERVICES,
+    TARGET_NAMESPACES,
+    WINDOW_SIZE_SECONDS,
+    CLUSTER_ID
+)
 
 
 def generate_live_stream():
@@ -18,23 +24,30 @@ def generate_live_stream():
         response = {}
 
         for namespace in TARGET_NAMESPACES:
+
+            # collect once per namespace
+            node_map = collect_node_metrics(0, WINDOW_SIZE_SECONDS)
+            pod_map = collect_pod_metrics(namespace, WINDOW_SIZE_SECONDS)
+            centrality_map = compute_all_centralities(namespace, WINDOW_SIZE_SECONDS)
+
+            node_metrics = list(node_map.values())[0] if node_map else {}
+
             for svc in TARGET_SERVICES:
 
-                node = collect_node_metrics(0, WINDOW_SIZE_SECONDS)
-                pod = collect_pod_metrics(namespace, WINDOW_SIZE_SECONDS)
                 app = collect_app_metrics(namespace, svc, WINDOW_SIZE_SECONDS)
                 mesh = collect_mesh_metrics(namespace, svc, WINDOW_SIZE_SECONDS)
 
-                centrality_map = compute_all_centralities(namespace, WINDOW_SIZE_SECONDS)
+                # ✅ FIX
+                pod_metrics = aggregate_pods_for_service(pod_map, svc)
                 centrality = centrality_map.get(svc, {})
 
                 merged = merge_metrics(
                     base={},
-                    node_metrics=list(node.values())[0] if node else {},
-                    pod_metrics=pod.get(svc, {}),
+                    node_metrics=node_metrics,
+                    pod_metrics=pod_metrics,
                     app_metrics=app,
                     mesh_metrics=mesh,
-                    centrality_metrics=centrality
+                    centrality_metrics=centrality,
                 )
 
                 row = build_dataset_row(
@@ -48,12 +61,11 @@ def generate_live_stream():
                         "current_replicas": merged.get("current_pod_count", 1),
                         "recommended_replicas": merged.get("current_pod_count", 1),
                         "scale_direction": "NONE",
-                    }
+                    },
                 )
 
                 response[f"{namespace}/{svc}"] = row
 
-        # ---- SSE format ----
+        # SSE payload
         yield f"data: {json.dumps(response)}\n\n"
-
-        time.sleep(2)   # update interval (you can change to 1 or 0.5 seconds)
+        time.sleep(2)

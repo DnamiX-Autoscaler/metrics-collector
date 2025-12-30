@@ -27,6 +27,9 @@ from api.controllers.get_metrics_config import get_metrics_config
 from api.controllers.get_running_pods import get_running_pods
 from api.controllers.get_running_services import get_running_services
 from api.controllers.get_monitoring_services import get_monitoring_services
+from api.controllers.generate_service_timeseries_stream import (
+    generate_service_timeseries_stream
+)
 
 router = APIRouter()
 
@@ -175,3 +178,13 @@ def runtime_services(namespace: str = "default"):
 @router.get("/runtime/monitoring/services")
 def runtime_monitoring_services(namespace: str = "monitoring"):
     return get_monitoring_services(namespace)
+
+#----------------------------------------------------
+# 18) REAL-TIME SERVICE TIMESERIES STREAM (SSE) - FOR ML MODEL INPUT
+#----------------------------------------------------
+@router.get("/timeseries/services/live")
+def live_service_timeseries():
+    return StreamingResponse(
+        generate_service_timeseries_stream(),
+        media_type="text/event-stream"
+    )

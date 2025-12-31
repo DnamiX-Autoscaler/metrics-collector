@@ -1,18 +1,21 @@
 from typing import List, Dict, Any
 from datetime import datetime, timezone
 
-from utils.k8s_client import get_k8s_core_v1
+from utils.k8s_client import get_core_v1_api
 
 
 def _format_ports(ports) -> str:
     result = []
-    for p in ports:
+
+    for p in ports or []:
         proto = p.protocol
         port = p.port
+
         if p.node_port:
             result.append(f"{port}:{p.node_port}/{proto}")
         else:
             result.append(f"{port}/{proto}")
+
     return ",".join(result)
 
 
@@ -22,7 +25,7 @@ def _calculate_age(created_at) -> str:
 
 
 def get_monitoring_services(namespace: str = "monitoring") -> List[Dict[str, Any]]:
-    v1 = get_k8s_core_v1()
+    v1 = get_core_v1_api()
     services = v1.list_namespaced_service(namespace=namespace)
 
     result = []
@@ -32,7 +35,7 @@ def get_monitoring_services(namespace: str = "monitoring") -> List[Dict[str, Any
         status = svc.status
 
         external_ip = "<none>"
-        if status.load_balancer and status.load_balancer.ingress:
+        if status and status.load_balancer and status.load_balancer.ingress:
             ingress = status.load_balancer.ingress[0]
             external_ip = ingress.ip or ingress.hostname or "<none>"
 

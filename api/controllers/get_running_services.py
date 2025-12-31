@@ -1,7 +1,7 @@
 from typing import List, Dict, Any
 from datetime import datetime, timezone
 
-from utils.k8s_client import get_k8s_core_v1
+from utils.k8s_client import get_core_v1_api
 
 
 def _format_ports(ports) -> str:
@@ -30,7 +30,7 @@ def _calculate_age(created_at) -> str:
 
 
 def get_running_services(namespace: str = "default") -> List[Dict[str, Any]]:
-    v1 = get_k8s_core_v1()
+    v1 = get_core_v1_api()
     services = v1.list_namespaced_service(namespace=namespace)
 
     result = []

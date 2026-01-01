@@ -1,1 +1,23 @@
 pip install networkx matplotlib
+
+
+
+# Why `import networkx as nx` Is Used in This Research
+
+## Purpose of NetworkX in This Study
+
+`networkx` is a **well-established scientific Python library** used for:
+- Graph theory
+- Network analysis
+- Centrality algorithms
+
+In this research, `networkx` is used **not to invent new formulas**, but to **correctly and reliably implement standard graph theory algorithms** on dynamically generated Kubernetes service graphs.
+
+---
+
+## What `import networkx as nx` Actually Provides
+
+By importing:
+
+```python
+import networkx as nx

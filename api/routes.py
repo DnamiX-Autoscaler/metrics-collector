@@ -30,6 +30,7 @@ from api.controllers.get_monitoring_services import get_monitoring_services
 from api.controllers.generate_service_timeseries_stream import (
     generate_service_timeseries_stream
 )
+from api.controllers.generate_resilience_metrics import generate_resilience_metrics
 
 router = APIRouter()
 
@@ -186,5 +187,15 @@ def runtime_monitoring_services(namespace: str = "monitoring"):
 def live_service_timeseries():
     return StreamingResponse(
         generate_service_timeseries_stream(),
+        media_type="text/event-stream"
+    )
+
+#----------------------------------------------------
+# 19) REAL-TIME RESILIENCE METRICS STREAM (SSE) -
+#----------------------------------------------------    
+@router.get("/resilience/live-stream")
+def resilience_live_stream():
+    return StreamingResponse(
+        generate_resilience_metrics(),
         media_type="text/event-stream"
     )

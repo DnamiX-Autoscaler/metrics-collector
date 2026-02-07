@@ -31,6 +31,13 @@ venv\Scripts\activate
 ## Pipeline run
 python main.py 
 
+$env:TARGET_NAMESPACES="ecommerce-test"
+python main.py
+
+$env:TARGET_NAMESPACES="default,ecommerce-test,monitoring,istio-system"
+python main.py
+
+
 ## One File Run
 python collectors/node/node_cpu_collector.py
 
@@ -72,6 +79,16 @@ kubectl delete -f tests/istio/mesh-traffic-generator.yaml
 
 ### TRAFIC GENERATOR
 kubectl get pods -n default | findstr mesh-traffic-generator
+
+while ($true) {
+  Invoke-WebRequest -Uri http://localhost:30080/" -UseBasicParsing | Out-Null
+  Start-Sleep -Milliseconds 200
+}
+
+kubectl exec -it mesh-traffic-generator-6b8745d9f8-8pnsf -n default -- sh
+
+kubectl run traffic-gen --image=busybox -n default --restart=Never -- sh -c "while true; do wget -qO- http://product-service.default.svc.cluster.local:3000 > /dev/null; sleep 0.2; done"
+
 
 ## SWITCH LOCAL AND PROD
 kubectl config use-context docker-desktop

@@ -4,17 +4,16 @@ from typing import List, Dict
 
 from utils.time_utils import current_utc_iso
 from config.settings import (
-    TARGET_NAMESPACES,
     WINDOW_SIZE_SECONDS,
     CLUSTER_ID,
 )
-from api.service_targets import TARGET_SERVICES
+from api.service_targets import ALL_NAMESPACES, NAMESPACE_SERVICES
 from collectors.node.node_aggregator import collect_node_metrics
 
 
 def generate_process_stream():
     """
-    SSE generator for real-time process metadata
+    SSE generator for real-time process metadata across all namespaces
     """
 
     while True:
@@ -27,8 +26,8 @@ def generate_process_stream():
             else "unknown"
         )
 
-        for namespace in TARGET_NAMESPACES:
-            for service in TARGET_SERVICES:
+        for namespace in ALL_NAMESPACES:
+            for service in NAMESPACE_SERVICES.get(namespace, []):
                 processes.append({
                     "clusterId": CLUSTER_ID,
                     "timeStamp": current_utc_iso(),

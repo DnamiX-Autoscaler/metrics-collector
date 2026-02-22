@@ -3,7 +3,8 @@ import time
 from typing import Dict, Any, List
 
 from collectors.mesh.mesh_aggregator import collect_mesh_metrics
-from config.settings import TARGET_NAMESPACES, TARGET_SERVICES, WINDOW_SIZE_SECONDS
+from config.settings import TARGET_NAMESPACES, WINDOW_SIZE_SECONDS
+from api.service_targets import TARGET_SERVICES
 
 
 def generate_service_mesh_stream():

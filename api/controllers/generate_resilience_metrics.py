@@ -7,7 +7,8 @@ from collectors.mesh.mesh_aggregator import collect_mesh_metrics
 from graph_centrality.compute_all import compute_all_centralities
 
 from utils.time_utils import current_utc_iso
-from config.settings import TARGET_NAMESPACES, TARGET_SERVICES, WINDOW_SIZE_SECONDS
+from config.settings import TARGET_NAMESPACES, WINDOW_SIZE_SECONDS
+from api.service_targets import TARGET_SERVICES
 
 
 def generate_resilience_metrics():

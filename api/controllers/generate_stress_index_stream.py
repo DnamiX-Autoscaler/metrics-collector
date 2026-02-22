@@ -10,7 +10,8 @@ from collectors.app.app_aggregator import collect_app_metrics
 from collectors.mesh.mesh_aggregator import collect_mesh_metrics
 from processors.data_merger import merge_metrics
 from utils.time_utils import current_utc_iso
-from config.settings import TARGET_NAMESPACES, TARGET_SERVICES, WINDOW_SIZE_SECONDS
+from config.settings import TARGET_NAMESPACES, WINDOW_SIZE_SECONDS
+from api.service_targets import TARGET_SERVICES
 
 HISTORY_SIZE = 6
 history_buffer = deque(maxlen=HISTORY_SIZE)

@@ -9,11 +9,11 @@ from processors.data_merger import merge_metrics
 from processors.dataset_row_builder import build_dataset_row
 from utils.pod_service_mapper import aggregate_pods_for_service
 from config.settings import (
-    TARGET_SERVICES,
     TARGET_NAMESPACES,
     WINDOW_SIZE_SECONDS,
-    CLUSTER_ID
+    CLUSTER_ID,
 )
+from api.service_targets import TARGET_SERVICES
 
 
 def get_live_metrics() -> Dict[str, Any]:

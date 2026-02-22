@@ -1,12 +1,12 @@
 from config.settings import (
     PROMETHEUS_URL,
-    TARGET_NAMESPACES,
-    TARGET_SERVICES,
+    CLUSTER_ID,
     WINDOW_SIZE_SECONDS,
     SCRAPE_INTERVAL_SECONDS,
-    QUEUE_TEST_MODE,
-    ERROR_TEST_MODE,
+    TARGET_NAMESPACES,
+    OUTPUT_DATASET_PATH,
 )
+from api.service_targets import TARGET_SERVICES
 
 
 def get_runtime_config():

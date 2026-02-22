@@ -6,7 +6,8 @@ from graph_centrality.compute_all import compute_all_centralities
 from graph_centrality.graph_builder import build_service_graph
 from collectors.app.app_aggregator import collect_app_metrics
 from collectors.pod.pod_aggregator import collect_pod_metrics
-from config.settings import TARGET_NAMESPACES, TARGET_SERVICES, WINDOW_SIZE_SECONDS
+from config.settings import TARGET_NAMESPACES, WINDOW_SIZE_SECONDS
+from api.service_targets import TARGET_SERVICES
 
 
 def generate_graph_centrality_stream():

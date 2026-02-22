@@ -1,7 +1,8 @@
 from typing import List, Dict
 from utils.time_utils import current_utc_iso
-from config.settings import TARGET_SERVICES, TARGET_NAMESPACES, WINDOW_SIZE_SECONDS, CLUSTER_ID
+from config.settings import TARGET_NAMESPACES, WINDOW_SIZE_SECONDS, CLUSTER_ID
 from collectors.node.node_aggregator import collect_node_metrics
+from api.service_targets import TARGET_SERVICES
 
 
 def get_live_processes() -> List[Dict]:

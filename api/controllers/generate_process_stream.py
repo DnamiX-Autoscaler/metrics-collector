@@ -4,11 +4,11 @@ from typing import List, Dict
 
 from utils.time_utils import current_utc_iso
 from config.settings import (
-    TARGET_SERVICES,
     TARGET_NAMESPACES,
     WINDOW_SIZE_SECONDS,
     CLUSTER_ID,
 )
+from api.service_targets import TARGET_SERVICES
 from collectors.node.node_aggregator import collect_node_metrics
 
 

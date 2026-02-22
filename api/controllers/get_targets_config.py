@@ -1,6 +1,10 @@
 from collectors.node.node_aggregator import collect_node_metrics
 from collectors.pod.pod_aggregator import collect_pod_metrics
-from config.settings import TARGET_NAMESPACES, WINDOW_SIZE_SECONDS
+from config.settings import (
+    TARGET_NAMESPACES,
+    WINDOW_SIZE_SECONDS,
+)
+from api.service_targets import TARGET_SERVICES
 
 
 def get_targets_config():

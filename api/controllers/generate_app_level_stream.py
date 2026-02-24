@@ -3,21 +3,23 @@ import time
 from typing import Dict, Any, List
 
 from collectors.app.app_aggregator import collect_app_metrics
-from config.settings import TARGET_NAMESPACES, WINDOW_SIZE_SECONDS
-from api.service_targets import TARGET_SERVICES
+from config.settings import WINDOW_SIZE_SECONDS
+from utils.time_utils import current_utc_iso
+from api.service_targets import NAMESPACE_SERVICES
 
 
 def generate_app_level_stream():
     """
-    SSE generator for real-time APPLICATION-LEVEL metrics
-    Output shape EXACTLY matches frontend contract
+    SSE generator for real-time APPLICATION-LEVEL metrics.
+    One row per namespace → service, with timestamp.
     """
 
     while True:
         app_rows: List[Dict[str, Any]] = []
+        ts = current_utc_iso()
 
-        for namespace in TARGET_NAMESPACES:
-            for service in TARGET_SERVICES:
+        for namespace, services in NAMESPACE_SERVICES.items():
+            for service in services:
                 metrics = collect_app_metrics(
                     namespace=namespace,
                     service_name=service,
@@ -25,6 +27,9 @@ def generate_app_level_stream():
                 )
 
                 app_rows.append({
+                    "timestamp": ts,
+                    "namespace": namespace,
+                    "service_name": service,
                     "request_rate_rps": round(metrics.get("request_rate_rps", 0.0), 2),
                     "success_rate_percent": round(metrics.get("success_rate_percent", 0.0), 2),
                     "error_rate_percent": round(metrics.get("error_rate_percent", 0.0), 2),

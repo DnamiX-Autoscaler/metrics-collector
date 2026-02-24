@@ -3,21 +3,23 @@ import time
 from typing import Dict, Any, List
 
 from collectors.mesh.mesh_aggregator import collect_mesh_metrics
-from config.settings import TARGET_NAMESPACES, WINDOW_SIZE_SECONDS
-from api.service_targets import TARGET_SERVICES
+from config.settings import WINDOW_SIZE_SECONDS
+from utils.time_utils import current_utc_iso
+from api.service_targets import NAMESPACE_SERVICES
 
 
 def generate_service_mesh_stream():
     """
-    SSE generator for real-time SERVICE-MESH-LEVEL metrics
-    Output shape EXACTLY matches frontend contract
+    SSE generator for real-time SERVICE-MESH-LEVEL metrics.
+    One row per namespace → service, with timestamp.
     """
 
     while True:
         mesh_rows: List[Dict[str, Any]] = []
+        ts = current_utc_iso()
 
-        for namespace in TARGET_NAMESPACES:
-            for service in TARGET_SERVICES:
+        for namespace, services in NAMESPACE_SERVICES.items():
+            for service in services:
                 metrics = collect_mesh_metrics(
                     namespace=namespace,
                     service_name=service,
@@ -25,6 +27,9 @@ def generate_service_mesh_stream():
                 )
 
                 mesh_rows.append({
+                    "timestamp": ts,
+                    "namespace": namespace,
+                    "service_name": service,
                     "inbound_request_rate_rps": round(
                         metrics.get("inbound_request_rate_rps", 0.0), 2
                     ),

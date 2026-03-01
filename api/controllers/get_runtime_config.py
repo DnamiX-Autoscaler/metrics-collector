@@ -3,10 +3,11 @@ from config.settings import (
     CLUSTER_ID,
     WINDOW_SIZE_SECONDS,
     SCRAPE_INTERVAL_SECONDS,
-    TARGET_NAMESPACES,
     OUTPUT_DATASET_PATH,
+    QUEUE_TEST_MODE,
+    ERROR_TEST_MODE,
 )
-from api.service_targets import TARGET_SERVICES
+from api.service_targets import ALL_NAMESPACES, NAMESPACE_SERVICES, TARGET_SERVICES
 
 
 def get_runtime_config():
@@ -17,7 +18,8 @@ def get_runtime_config():
         },
         "collection_window_seconds": WINDOW_SIZE_SECONDS,
         "targets": {
-            "namespaces": TARGET_NAMESPACES,
+            "namespaces": ALL_NAMESPACES,
+            "namespace_services": NAMESPACE_SERVICES,
             "services": TARGET_SERVICES,
         },
         "modes": {

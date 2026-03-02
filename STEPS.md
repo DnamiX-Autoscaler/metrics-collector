@@ -121,10 +121,15 @@ $env:SCRAPE_INTERVAL_SECONDS="99999"
 python main.py
 
 
+# Clean cluster 
 
+kubectl delete namespace monitoring
+kubectl delete namespace ecommerce-prod
 
+docker image prune -a
+docker volume prune
 
-
+wsl --shutdown
 
 
 

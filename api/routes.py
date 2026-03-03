@@ -31,6 +31,9 @@ from api.controllers.generate_service_timeseries_stream import (
     generate_service_timeseries_stream
 )
 from api.controllers.generate_resilience_metrics import generate_resilience_metrics
+from api.controllers.generate_timeseries_metrics_current_date_to_month import (
+    generate_monthly_timeseries_stream
+)
 
 router = APIRouter()
 
@@ -197,5 +200,16 @@ def live_service_timeseries():
 def resilience_live_stream():
     return StreamingResponse(
         generate_resilience_metrics(),
+        media_type="text/event-stream"
+    )
+
+#----------------------------------------------------
+# 20) HISTORICAL TIMESERIES STREAM (SSE) - PAST 30 DAYS
+#     For ML model input: current date back to 1 month
+#----------------------------------------------------
+@router.get("/timeseries/monthly/live-stream")
+def monthly_timeseries_stream():
+    return StreamingResponse(
+        generate_monthly_timeseries_stream(),
         media_type="text/event-stream"
     )

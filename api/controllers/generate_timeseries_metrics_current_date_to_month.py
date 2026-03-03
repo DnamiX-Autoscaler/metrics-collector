@@ -1,7 +1,13 @@
 """
-SSE stream: Historical metrics for past 1 month (from now back to 30 days ago).
+SSE stream: Historical metrics for a configurable lookback window (default: past 3 days).
 Fetched from Prometheus via range queries, one row per timestamp per service.
-Streams per namespace → service → [timestamped rows], refreshed every 60 seconds.
+Streams per namespace → service → [timestamped rows], refreshed every 30 seconds.
+
+Developer notes
+---------------
+LOOKBACK_DAYS   — how many days of history to fetch  (change this to adjust range)
+STEP_SECONDS    — resolution between data points      (lower = more points = bigger payload)
+REFRESH_SECONDS — how often the SSE stream re-fetches (lower = more frequent updates)
 """
 
 import json
@@ -17,10 +23,16 @@ from graph_centrality.compute_all import compute_all_centralities
 
 client = HTTPClient(PROMETHEUS_URL)
 
-# Step between data points: 5 minutes (300s) — balances resolution vs payload size
-STEP_SECONDS = 300
-# How far back to look: 30 days
-LOOKBACK_SECONDS = 30 * 24 * 3600
+# ── Developer-tunable constants ──────────────────────────────────────────────
+# Increase LOOKBACK_DAYS to fetch more history (larger payload).
+# Decrease STEP_SECONDS for finer resolution (more rows per service).
+# Decrease REFRESH_SECONDS to push updates to the frontend more frequently.
+LOOKBACK_DAYS   = 3        # days of history to fetch  (was 30 — reduced for payload size)
+STEP_SECONDS    = 12 * 3600        # resolution: 12 h between data points
+REFRESH_SECONDS = 60         # SSE re-fetch interval in seconds
+
+# Derived — do not edit manually
+LOOKBACK_SECONDS = LOOKBACK_DAYS * 24 * 3600
 
 
 def _range_query(promql: str, start: float, end: float) -> List[Dict]:
@@ -174,9 +186,9 @@ def generate_monthly_timeseries_stream():
     SSE generator.
     On each tick:
       1. Re-discovers namespaces + services.
-      2. Queries Prometheus range API for past 30 days.
+      2. Queries Prometheus range API for the past LOOKBACK_DAYS days.
       3. Emits one SSE event: { namespace/service: [rows...], ... }
-      4. Sleeps 60 seconds before re-fetching.
+      4. Sleeps REFRESH_SECONDS before re-fetching.
     """
 
     while True:
@@ -189,6 +201,7 @@ def generate_monthly_timeseries_stream():
                 "start": datetime.fromtimestamp(start_ts, tz=timezone.utc).isoformat(),
                 "end": datetime.fromtimestamp(end_ts, tz=timezone.utc).isoformat(),
                 "step_seconds": STEP_SECONDS,
+                "lookback_days": LOOKBACK_DAYS,
             },
             "services": {},
         }
@@ -222,4 +235,4 @@ def generate_monthly_timeseries_stream():
                     }
 
         yield f"data: {json.dumps(payload)}\n\n"
-        time.sleep(60)  # Re-fetch every 60 seconds
+        time.sleep(REFRESH_SECONDS)

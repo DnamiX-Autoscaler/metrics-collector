@@ -24,7 +24,8 @@ def compute_eigenvector_centrality(G: nx.DiGraph) -> Dict[str, float]:
     UG = G.to_undirected()
 
     try:
-        ec = nx.eigenvector_centrality_numpy(UG)
+        # Use pure power-iteration method (no scipy required)
+        ec = nx.eigenvector_centrality(UG, max_iter=1000, tol=1.0e-6)
     except Exception as e:
         logger.error("Eigenvector centrality failed: %s", e)
         # Fallback to zeros

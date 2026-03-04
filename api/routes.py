@@ -34,6 +34,9 @@ from api.controllers.generate_resilience_metrics import generate_resilience_metr
 from api.controllers.generate_timeseries_metrics_current_date_to_month import (
     generate_monthly_timeseries_stream
 )
+from api.controllers.generate_timeseries_metrics_date_range import (
+    get_timeseries_date_range
+)
 
 router = APIRouter()
 
@@ -212,4 +215,19 @@ def monthly_timeseries_stream():
     return StreamingResponse(
         generate_monthly_timeseries_stream(),
         media_type="text/event-stream"
+    )
+
+#----------------------------------------------------
+# 21) HISTORICAL TIMESERIES (REST) - PARAM-DRIVEN DATE RANGE
+#     Accepts: lookback_days, step_seconds as query params
+#     Returns a single JSON response (no SSE)
+#----------------------------------------------------
+@router.get("/timeseries/date-range")
+def timeseries_date_range(
+    lookback_days: int = 3,
+    step_seconds: int = 43200,
+):
+    return get_timeseries_date_range(
+        lookback_days=lookback_days,
+        step_seconds=step_seconds,
     )

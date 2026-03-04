@@ -233,7 +233,10 @@ def get_timeseries_date_range(
             continue
 
         try:
-            centrality_map = compute_all_centralities(namespace)
+            centrality_map = compute_all_centralities(
+                namespace=namespace,
+                window_size_seconds=step_seconds,
+            )
         except Exception:
             centrality_map = {}
 

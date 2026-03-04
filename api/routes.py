@@ -37,6 +37,8 @@ from api.controllers.generate_timeseries_metrics_current_date_to_month import (
 from api.controllers.generate_timeseries_metrics_date_range import (
     get_timeseries_date_range
 )
+from api.controllers.generate_sliding_window import get_sliding_window_features
+from api.controllers.generate_sliding_window_stream import generate_sliding_window_stream
 
 router = APIRouter()
 
@@ -230,4 +232,39 @@ def timeseries_date_range(
     return get_timeseries_date_range(
         lookback_days=lookback_days,
         step_seconds=step_seconds,
+    )
+
+#----------------------------------------------------
+# 22) SLIDING-WINDOW FEATURES (REST) - ONE-SHOT
+#     8 traffic features per service over last N seconds
+#     Accepts: window_seconds, sub_step
+#----------------------------------------------------
+@router.get("/sliding-window/features")
+def sliding_window_features(
+    window_seconds: int = 30,
+    sub_step: int = 5,
+):
+    return get_sliding_window_features(
+        window_seconds=window_seconds,
+        sub_step=sub_step,
+    )
+
+#----------------------------------------------------
+# 23) SLIDING-WINDOW FEATURES STREAM (SSE) - CONTINUOUS
+#     Same 8 features pushed every refresh_seconds
+#     Accepts: window_seconds, sub_step, refresh_seconds
+#----------------------------------------------------
+@router.get("/sliding-window/features/live-stream")
+def sliding_window_features_stream(
+    window_seconds: int = 30,
+    sub_step: int = 5,
+    refresh_seconds: int = 0,
+):
+    return StreamingResponse(
+        generate_sliding_window_stream(
+            window_seconds=window_seconds,
+            sub_step=sub_step,
+            refresh_seconds=refresh_seconds,
+        ),
+        media_type="text/event-stream",
     )

@@ -169,20 +169,24 @@ def _compute_features(
 
     # ── Sub-interval time series ────────────────────────────────────────────
 
-    # RPS at each sub-interval
+    # RPS at each sub-interval.
+    # Rate window = window_seconds so Prometheus always has enough samples
+    # regardless of scrape interval (typically 15–30 s).
+    # Step = sub_step so we still get multiple data points across the window.
     rps_series = _series_values(_range_query(
-        f'sum(rate(istio_requests_total{{{dst}}}[{sub_step}s]))',
+        f'sum(rate(istio_requests_total{{{dst}}}[{window_seconds}s]))',
         start_ts, end_ts, sub_step,
     ))
     rps_vals = [v for _, v in rps_series]
 
-    # Latency numerator (sum) and denominator (count) at each sub-interval
+    # Latency numerator (sum) and denominator (count) at each sub-interval.
+    # Istio 1.12+ exports istio_request_duration_milliseconds (not _seconds).
     lat_sum_series = _series_values(_range_query(
-        f'sum(rate(istio_request_duration_seconds_sum{{{dst}}}[{sub_step}s]))',
+        f'sum(rate(istio_request_duration_milliseconds_sum{{{dst}}}[{window_seconds}s]))',
         start_ts, end_ts, sub_step,
     ))
     lat_cnt_series = _series_values(_range_query(
-        f'sum(rate(istio_request_duration_seconds_count{{{dst}}}[{sub_step}s]))',
+        f'sum(rate(istio_request_duration_milliseconds_count{{{dst}}}[{window_seconds}s]))',
         start_ts, end_ts, sub_step,
     ))
 
@@ -193,7 +197,8 @@ def _compute_features(
     for ts, _ in lat_sum_series:
         cnt = lat_cnt_map.get(ts, 0.0)
         if cnt > 0:
-            lat_vals_ms.append((lat_sum_map[ts] / cnt) * 1000.0)
+            # metric is already in milliseconds — no * 1000 needed
+            lat_vals_ms.append(lat_sum_map[ts] / cnt)
 
     # ── Feature: rps_mean, rps_std ───────────────────────────────────────────
     rps_mean = statistics.mean(rps_vals)     if rps_vals else 0.0

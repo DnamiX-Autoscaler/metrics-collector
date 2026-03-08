@@ -1,14 +1,23 @@
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from utils.k8s_client import get_core_v1_api
+from api.service_targets import NAMESPACE_SERVICES
 
 
-def get_running_pods(namespace: str = "default") -> List[Dict[str, Any]]:
+def get_running_pods(namespace: Optional[str] = None) -> List[Dict[str, Any]]:
     v1 = get_core_v1_api()
 
-    pods = v1.list_namespaced_pod(namespace=namespace)
-    result = []
+    namespaces_to_query = [namespace] if namespace else list(NAMESPACE_SERVICES.keys())
 
-    for pod in pods.items:
+    result = []
+    for ns in namespaces_to_query:
+        pods = v1.list_namespaced_pod(namespace=ns)
+        _append_pods(pods.items, ns, result)
+
+    return result
+
+
+def _append_pods(pod_items, namespace: str, result: list) -> None:
+    for pod in pod_items:
         status = pod.status
         spec = pod.spec
 
@@ -23,6 +32,7 @@ def get_running_pods(namespace: str = "default") -> List[Dict[str, Any]]:
 
         result.append({
             "name": pod.metadata.name,
+            "namespace": namespace,
             "ready": f"{ready_containers}/{total_containers}",
             "status": status.phase or "Unknown",
             "restarts": restarts,
@@ -32,5 +42,3 @@ def get_running_pods(namespace: str = "default") -> List[Dict[str, Any]]:
             "nominatedNode": "<none>",
             "readinessGates": "<none>",
         })
-
-    return result

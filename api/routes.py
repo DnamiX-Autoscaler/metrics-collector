@@ -171,7 +171,7 @@ def metrics_config():
 # 15) RUNNING PODS INFO
 #----------------------------------------------------
 @router.get("/runtime/pods")
-def runtime_pods(namespace: str = "default"):
+def runtime_pods(namespace: str = None):
     return get_running_pods(namespace)
 
 #----------------------------------------------------

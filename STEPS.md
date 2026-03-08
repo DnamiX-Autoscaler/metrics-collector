@@ -85,6 +85,8 @@ while ($true) {
   Start-Sleep -Milliseconds 200
 }
 
+for ($i=1; $i -le 500; $i++) { curl http://localhost:30080/health }
+
 kubectl exec -it mesh-traffic-generator-6b8745d9f8-8pnsf -n default -- sh
 
 kubectl run traffic-gen --image=busybox -n default --restart=Never -- sh -c "while true; do wget -qO- http://product-service.default.svc.cluster.local:3000 > /dev/null; sleep 0.2; done"

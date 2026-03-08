@@ -1,7 +1,8 @@
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from datetime import datetime, timezone
 
 from utils.k8s_client import get_core_v1_api
+from api.service_targets import NAMESPACE_SERVICES
 
 
 def _format_ports(ports) -> str:
@@ -29,27 +30,30 @@ def _calculate_age(created_at) -> str:
     return f"{days}d"
 
 
-def get_running_services(namespace: str = "default") -> List[Dict[str, Any]]:
+def get_running_services(namespace: Optional[str] = None) -> List[Dict[str, Any]]:
     v1 = get_core_v1_api()
-    services = v1.list_namespaced_service(namespace=namespace)
+
+    namespaces_to_query = [namespace] if namespace else list(NAMESPACE_SERVICES.keys())
 
     result = []
+    for ns in namespaces_to_query:
+        services = v1.list_namespaced_service(namespace=ns)
+        for svc in services.items:
+            spec = svc.spec
+            status = svc.status
 
-    for svc in services.items:
-        spec = svc.spec
-        status = svc.status
-
-        result.append({
-            "name": svc.metadata.name,
-            "type": spec.type,
-            "clusterIP": spec.cluster_ip,
-            "externalIP": (
-                status.load_balancer.ingress[0].ip
-                if status.load_balancer and status.load_balancer.ingress
-                else "<none>"
-            ),
-            "ports": _format_ports(spec.ports),
-            "age": _calculate_age(svc.metadata.creation_timestamp),
-        })
+            result.append({
+                "name": svc.metadata.name,
+                "namespace": ns,
+                "type": spec.type,
+                "clusterIP": spec.cluster_ip,
+                "externalIP": (
+                    status.load_balancer.ingress[0].ip
+                    if status.load_balancer and status.load_balancer.ingress
+                    else "<none>"
+                ),
+                "ports": _format_ports(spec.ports or []),
+                "age": _calculate_age(svc.metadata.creation_timestamp),
+            })
 
     return result

@@ -178,7 +178,7 @@ def runtime_pods(namespace: str = None):
 # 16) RUNNING SERVICES INFO
 #----------------------------------------------------
 @router.get("/runtime/services")
-def runtime_services(namespace: str = "default"):
+def runtime_services(namespace: str = None):
     return get_running_services(namespace)
 
 #----------------------------------------------------

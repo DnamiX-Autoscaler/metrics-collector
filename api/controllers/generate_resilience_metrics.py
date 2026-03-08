@@ -7,8 +7,8 @@ from collectors.mesh.mesh_aggregator import collect_mesh_metrics
 from graph_centrality.compute_all import compute_all_centralities
 
 from utils.time_utils import current_utc_iso
-from config.settings import TARGET_NAMESPACES, WINDOW_SIZE_SECONDS
-from api.service_targets import TARGET_SERVICES
+from config.settings import WINDOW_SIZE_SECONDS
+from api.service_targets import NAMESPACE_SERVICES
 
 
 def generate_resilience_metrics():
@@ -27,7 +27,7 @@ def generate_resilience_metrics():
     while True:
         services_payload = []
 
-        for namespace in TARGET_NAMESPACES:
+        for namespace, services in NAMESPACE_SERVICES.items():
 
             # Graph centrality (novel contribution)
             centrality_map = compute_all_centralities(
@@ -38,7 +38,7 @@ def generate_resilience_metrics():
             # Pod metrics (namespace-wide)
             pod_map = collect_pod_metrics(namespace, WINDOW_SIZE_SECONDS)
 
-            for service in TARGET_SERVICES:
+            for service in services:
 
                 # ---------------- APP ----------------
                 app = collect_app_metrics(namespace, service, WINDOW_SIZE_SECONDS)

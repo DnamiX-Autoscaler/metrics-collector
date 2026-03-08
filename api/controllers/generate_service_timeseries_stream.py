@@ -9,8 +9,8 @@ from graph_centrality.compute_all import compute_all_centralities
 from processors.data_merger import merge_metrics
 from utils.time_features import compute_time_features
 from utils.time_utils import current_utc_iso
-from config.settings import TARGET_NAMESPACES, WINDOW_SIZE_SECONDS
-from api.service_targets import TARGET_SERVICES
+from config.settings import WINDOW_SIZE_SECONDS
+from api.service_targets import NAMESPACE_SERVICES
 from utils.pod_service_mapper import aggregate_pods_for_service
 
 
@@ -23,7 +23,7 @@ def generate_service_timeseries_stream():
     while True:
         response = {}
 
-        for namespace in TARGET_NAMESPACES:
+        for namespace, services in NAMESPACE_SERVICES.items():
             # compute once per namespace
             centrality_map = compute_all_centralities(
                 namespace,
@@ -32,7 +32,7 @@ def generate_service_timeseries_stream():
 
             pod_map = collect_pod_metrics(namespace, WINDOW_SIZE_SECONDS)
 
-            for svc in TARGET_SERVICES:
+            for svc in services:
                 # collect per-service metrics
                 app = collect_app_metrics(namespace, svc, WINDOW_SIZE_SECONDS)
                 mesh = collect_mesh_metrics(namespace, svc, WINDOW_SIZE_SECONDS)

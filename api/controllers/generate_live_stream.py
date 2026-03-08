@@ -10,11 +10,10 @@ from processors.data_merger import merge_metrics
 from processors.dataset_row_builder import build_dataset_row
 from utils.pod_service_mapper import aggregate_pods_for_service
 from config.settings import (
-    TARGET_NAMESPACES,
     WINDOW_SIZE_SECONDS,
     CLUSTER_ID
 )
-from api.service_targets import TARGET_SERVICES
+from api.service_targets import NAMESPACE_SERVICES
 
 
 def generate_live_stream():
@@ -23,7 +22,7 @@ def generate_live_stream():
     while True:
         response = {}
 
-        for namespace in TARGET_NAMESPACES:
+        for namespace, services in NAMESPACE_SERVICES.items():
 
             # collect once per namespace
             node_map = collect_node_metrics(0, WINDOW_SIZE_SECONDS)
@@ -32,7 +31,7 @@ def generate_live_stream():
 
             node_metrics = list(node_map.values())[0] if node_map else {}
 
-            for svc in TARGET_SERVICES:
+            for svc in services:
 
                 app = collect_app_metrics(namespace, svc, WINDOW_SIZE_SECONDS)
                 mesh = collect_mesh_metrics(namespace, svc, WINDOW_SIZE_SECONDS)

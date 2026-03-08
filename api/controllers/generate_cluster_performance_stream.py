@@ -5,7 +5,8 @@ from typing import Dict, Any, List
 from utils.time_utils import current_utc_iso
 from collectors.node.node_aggregator import collect_node_metrics
 from collectors.pod.pod_aggregator import collect_pod_metrics
-from config.settings import TARGET_NAMESPACES, WINDOW_SIZE_SECONDS, CLUSTER_ID
+from config.settings import WINDOW_SIZE_SECONDS, CLUSTER_ID
+from api.service_targets import NAMESPACE_SERVICES
 
 
 def generate_cluster_performance_stream():
@@ -25,7 +26,7 @@ def generate_cluster_performance_stream():
 
         # ---- POD METRICS (cluster-wide count) ----
         total_pods = 0
-        for ns in TARGET_NAMESPACES:
+        for ns in NAMESPACE_SERVICES:
             pod_map = collect_pod_metrics(ns, WINDOW_SIZE_SECONDS)
             total_pods += len(pod_map)
 
